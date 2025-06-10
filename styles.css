@@ -405,6 +405,42 @@ section {
     }
 }
 
+/* Stilurile link-urilor de paginare */
+.page-link {
+    display: inline-block;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    padding: 8px 15px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s, transform 0.2s;
+    min-width: 100px;
+    text-align: center;
+    text-decoration: none;
+    margin: 0 5px;
+}
+
+.page-link:hover {
+    background-color: #45a049;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    text-decoration: none;
+    color: white;
+}
+
+.page-link:active {
+    transform: translateY(1px);
+    background-color: #3e8e41;
+}
+
+.page-link.disabled {
+    background-color: #cccccc;
+    color: #888888;
+    cursor: not-allowed;
+    box-shadow: none;
+    pointer-events: none;
+}
+
 /* Stiluri pentru paginare */
 .pagination {
     display: flex;
@@ -424,37 +460,6 @@ section {
 .pagination-controls {
     display: flex;
     gap: 8px;
-}
-
-/* Stilurile butoanelor de paginare */
-.pagination-controls button {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 8px 15px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s, transform 0.2s;
-    min-width: 100px;
-    text-align: center;
-}
-
-.pagination-controls button:hover:not([disabled]) {
-    background-color: #45a049;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.pagination-controls button:active:not([disabled]) {
-    transform: translateY(1px);
-    background-color: #3e8e41;
-}
-
-.pagination-controls button[disabled] {
-    background-color: #cccccc;
-    color: #888888;
-    cursor: not-allowed;
-    box-shadow: none;
 }
 
 #items-per-page {
@@ -480,7 +485,7 @@ section {
         flex-wrap: wrap;
     }
     
-    .pagination-controls button {
+    .page-link {
         margin: 5px;
         padding: 10px 15px;
         font-size: 16px;

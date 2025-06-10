@@ -404,11 +404,36 @@ function updatePaginationControls() {
     
     document.getElementById('pagination-text').textContent = `Pagina ${currentPage} din ${totalPages}`;
     
-    // Actualizăm starea butoanelor
-    document.getElementById('first-page').disabled = currentPage <= 1;
-    document.getElementById('prev-page').disabled = currentPage <= 1;
-    document.getElementById('next-page').disabled = currentPage >= totalPages;
-    document.getElementById('last-page').disabled = currentPage >= totalPages;
+    // Actualizăm starea link-urilor de paginare
+    const firstPageLink = document.getElementById('first-page');
+    const prevPageLink = document.getElementById('prev-page');
+    const nextPageLink = document.getElementById('next-page');
+    const lastPageLink = document.getElementById('last-page');
+    
+    // Activăm/dezactivăm link-urile adăugând/eliminând clasa 'disabled'
+    if (currentPage <= 1) {
+        firstPageLink.classList.add('disabled');
+        prevPageLink.classList.add('disabled');
+    } else {
+        firstPageLink.classList.remove('disabled');
+        prevPageLink.classList.remove('disabled');
+    }
+    
+    if (currentPage >= totalPages) {
+        nextPageLink.classList.add('disabled');
+        lastPageLink.classList.add('disabled');
+    } else {
+        nextPageLink.classList.remove('disabled');
+        lastPageLink.classList.remove('disabled');
+    }
+    
+    // Debug - afișăm starea link-urilor
+    console.log('Stare link-uri paginare:', {
+        'first-page': firstPageLink.classList.contains('disabled'),
+        'prev-page': prevPageLink.classList.contains('disabled'),
+        'next-page': nextPageLink.classList.contains('disabled'),
+        'last-page': lastPageLink.classList.contains('disabled')
+    });
 }
 
 // Randează pagina curentă din datele filtrate
@@ -525,10 +550,12 @@ function updateTable(data, period = 'all') {
         
         // Actualizăm controalele de paginare
         document.getElementById('pagination-text').textContent = 'Pagina 0 din 0';
-        document.getElementById('first-page').disabled = true;
-        document.getElementById('prev-page').disabled = true;
-        document.getElementById('next-page').disabled = true;
-        document.getElementById('last-page').disabled = true;
+        
+        // Dezactivăm toate link-urile de paginare
+        document.getElementById('first-page').classList.add('disabled');
+        document.getElementById('prev-page').classList.add('disabled');
+        document.getElementById('next-page').classList.add('disabled');
+        document.getElementById('last-page').classList.add('disabled');
         
         return;
     }
@@ -947,32 +974,10 @@ function initControls() {
     // Setăm valoarea implicită pentru numărul de elemente pe pagină
     document.getElementById('items-per-page').value = itemsPerPage.toString();
     
-    // Setăm evenimentele pentru butoanele de paginare
-    document.getElementById('first-page').addEventListener('click', function(e) {
-        console.log('Click pe butonul Prima');
-        e.preventDefault();
-        goToFirstPage();
-    });
+    // Evenimentele pentru link-urile de paginare sunt definite direct în HTML cu onClick
+    // Putem elimina addEventListeners, deoarece folosim a href="javascript:void(0)" onclick="..." în HTML
     
-    document.getElementById('prev-page').addEventListener('click', function(e) {
-        console.log('Click pe butonul Anterioară');
-        e.preventDefault();
-        goToPrevPage();
-    });
-    
-    document.getElementById('next-page').addEventListener('click', function(e) {
-        console.log('Click pe butonul Următoarea');
-        e.preventDefault();
-        goToNextPage();
-    });
-    
-    document.getElementById('last-page').addEventListener('click', function(e) {
-        console.log('Click pe butonul Ultima');
-        e.preventDefault();
-        goToLastPage();
-    });
-    
-    // Inițializăm și începem actualizarea datei și orei
+    // Actualizăm ora și o vom actualiza în fiecare secundă
     updateCurrentDateTime();
     setInterval(updateCurrentDateTime, 1000);
 }
