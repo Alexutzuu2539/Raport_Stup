@@ -431,6 +431,13 @@ function updateStats(data) {
     // Temperatură curentă
     document.getElementById('current-temp').textContent = parseFloat(lastRow[2]).toFixed(1) + ' °C';
     
+    // Recolta zilnică (diferența)
+    const dailyHarvest = parseFloat(lastRow[3]);
+    const dailyHarvestElement = document.getElementById('daily-harvest');
+    dailyHarvestElement.textContent = dailyHarvest.toFixed(2) + ' kg';
+    // Adăugăm culoare în funcție de valoare
+    dailyHarvestElement.className = dailyHarvest >= 0 ? 'positive' : 'negative';
+    
     // Total recoltă
     document.getElementById('total-harvest').textContent = parseFloat(lastRow[4]).toFixed(2) + ' kg';
     

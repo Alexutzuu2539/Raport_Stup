@@ -130,6 +130,14 @@ h3 {
     color: var(--accent-color);
 }
 
+.stat-card p.positive {
+    color: var(--positive-color) !important;
+}
+
+.stat-card p.negative {
+    color: var(--negative-color) !important;
+}
+
 .data-table {
     background-color: var(--card-bg);
     border-radius: 8px;
