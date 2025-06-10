@@ -510,29 +510,69 @@ function initControls() {
     setInterval(updateCurrentDateTime, 1000);
 }
 
-// Inițializarea paginii
-async function initPage() {
-    // Setăm anul curent în footer
+// Inițializare temă și pagină
+document.addEventListener('DOMContentLoaded', function() {
+    // Verifică dacă există o preferință de temă salvată
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) {
+        // Aplică tema salvată
+        document.documentElement.className = savedTheme;
+    }
+    
+    // Adaugă handler pentru butonul de comutare a temei
+    const themeToggle = document.getElementById('theme-toggle');
+    themeToggle.addEventListener('click', toggleTheme);
+    
+    // Inițializează pagina
+    initPage();
+    
+    // Actualizează ora curentă
+    updateCurrentDateTime();
+    setInterval(updateCurrentDateTime, 1000);
+    
+    // Setează anul curent în footer
     document.getElementById('current-year').textContent = new Date().getFullYear();
     
-    // Curățăm elementele vechi care ar putea fi în cache
-    cleanupOldChartElements();
-    
-    // Inițializăm controalele
-    initControls();
-    
-    // Preluăm și afișăm datele
-    allData = await fetchSheetData();
-    if (allData) {
-        updateTable(allData, currentPeriod);
-        updateStats(allData);
+    // Reîncarcă datele la fiecare 15 minute
+    setInterval(initPage, 15 * 60 * 1000);
+});
+
+// Funcție pentru comutarea între teme
+function toggleTheme() {
+    if (document.documentElement.classList.contains('dark-theme')) {
+        // Schimbă la tema luminoasă
+        document.documentElement.classList.remove('dark-theme');
+        localStorage.setItem('theme', '');
+    } else {
+        // Schimbă la tema întunecată
+        document.documentElement.classList.add('dark-theme');
+        localStorage.setItem('theme', 'dark-theme');
     }
 }
 
-// Actualizăm pagina periodic
-window.onload = function() {
-    initPage();
+// Inițializează pagina și încarcă datele
+async function initPage() {
+    // Verifică și elimină posibile elemente de grafic din cache
+    cleanupOldChartElements();
     
-    // Actualizare la fiecare 15 minute
-    setInterval(initPage, 15 * 60 * 1000);
-}; 
+    // Inițializează controalele de filtrare
+    initControls();
+    
+    // Încarcă datele din Google Sheets
+    const loadingMessage = `<tr><td colspan="7" class="loading-message">Se încarcă datele...</td></tr>`;
+    document.getElementById('table-body').innerHTML = loadingMessage;
+    
+    // Preluare date
+    allData = await fetchSheetData();
+    
+    if (allData) {
+        // Actualizează tabelul și statisticile
+        updateTable(allData, currentPeriod);
+    }
+}
+
+// Funcții pentru filtrarea datelor
+// ... existing code ...
+
+// Alte funcții utilitare
+// ... existing code ... 
