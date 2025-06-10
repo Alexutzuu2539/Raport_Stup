@@ -478,7 +478,10 @@ function updateStats(data) {
 // Funcția pentru a schimba perioada
 function changePeriod() {
     const periodSelect = document.getElementById('period-select');
-    currentPeriod = periodSelect.value;
+    const newPeriod = periodSelect.value;
+    
+    console.log('Schimbare perioadă:', currentPeriod, '->', newPeriod);
+    currentPeriod = newPeriod;
     
     // Afișăm sau ascundem intervalul de date personalizate
     const customDateRangeDiv = document.getElementById('custom-date-range');
@@ -502,7 +505,19 @@ function changePeriod() {
     }
     
     if (allData) {
+        // Actualizăm tabelul pentru noua perioadă
+        console.log('Actualizare tabel pentru perioada:', currentPeriod);
         updateTable(allData, currentPeriod);
+        
+        // Asigurăm-ne că statisticile perioadei sunt actualizate
+        const filteredData = filterDataByPeriod(allData, currentPeriod);
+        const stats = calculatePeriodStats(filteredData);
+        console.log('Statistici calculate pentru perioada', currentPeriod, ':', stats);
+        
+        // Actualizăm manual statisticile
+        document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
+        document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
+        document.getElementById('period-count').textContent = stats.count + ' măsurători';
     }
 }
 
@@ -514,8 +529,26 @@ function applyCustomDateRange() {
     customStartDate = startDateInput.value;
     customEndDate = endDateInput.value;
     
+    console.log('Interval personalizat aplicat:', customStartDate, 'până la', customEndDate);
+    
     if (customStartDate && customEndDate && allData) {
+        // Setăm perioada curentă la 'custom' în caz că nu era deja setată
+        currentPeriod = 'custom';
+        document.getElementById('period-select').value = 'custom';
+        
+        // Actualizăm tabelul
+        console.log('Actualizare tabel pentru interval personalizat');
         updateTable(allData, 'custom');
+        
+        // Asigurăm-ne că statisticile perioadei sunt actualizate
+        const filteredData = filterDataByPeriod(allData, 'custom');
+        const stats = calculatePeriodStats(filteredData);
+        console.log('Statistici calculate pentru interval personalizat:', stats);
+        
+        // Actualizăm manual statisticile
+        document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
+        document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
+        document.getElementById('period-count').textContent = stats.count + ' măsurători';
     }
 }
 
@@ -554,8 +587,23 @@ async function initPage() {
     // Preluăm și afișăm datele
     allData = await fetchSheetData();
     if (allData) {
+        console.log('Date preluate cu succes, actualizăm pentru perioada:', currentPeriod);
+        
+        // Actualizăm tabelul pentru perioada curentă
         updateTable(allData, currentPeriod);
+        
+        // Actualizăm statisticile generale
         updateStats(allData);
+        
+        // Asigurăm-ne că statisticile perioadei sunt actualizate corect
+        const filteredData = filterDataByPeriod(allData, currentPeriod);
+        const stats = calculatePeriodStats(filteredData);
+        console.log('Statistici inițiale calculate pentru perioada', currentPeriod, ':', stats);
+        
+        // Actualizăm manual statisticile
+        document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
+        document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
+        document.getElementById('period-count').textContent = stats.count + ' măsurători';
     }
 }
 
