@@ -7,15 +7,15 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Monitorizare Stupină</title>
-    <link rel="stylesheet" href="styles.css?v=1.4">
+    <link rel="stylesheet" href="styles.css?v=1.5">
     <script>
         // Forță reload cu parametru de versiune pentru a evita cache-ul
         (function() {
             const currentUrl = window.location.href;
-            if (currentUrl.indexOf('v=1.4') === -1) {
+            if (currentUrl.indexOf('v=1.5') === -1) {
                 const newUrl = currentUrl.indexOf('?') === -1 
-                    ? currentUrl + '?v=1.4' 
-                    : currentUrl + '&v=1.4';
+                    ? currentUrl + '?v=1.5' 
+                    : currentUrl + '&v=1.5';
                 window.location.href = newUrl;
             }
         })();
@@ -69,7 +69,20 @@
                         <option value="week">Ultima săptămână</option>
                         <option value="month">Ultima lună</option>
                         <option value="year">Anul curent</option>
+                        <option value="custom">Interval personalizat</option>
                     </select>
+                </div>
+                
+                <div id="custom-date-range" class="custom-date-range">
+                    <div class="date-input">
+                        <label for="start-date">De la:</label>
+                        <input type="date" id="start-date" onchange="applyCustomDateRange()">
+                    </div>
+                    <div class="date-input">
+                        <label for="end-date">Până la:</label>
+                        <input type="date" id="end-date" onchange="applyCustomDateRange()">
+                    </div>
+                    <button id="apply-date-range" onclick="applyCustomDateRange()">Aplică</button>
                 </div>
                 
                 <div class="period-summary">
@@ -122,6 +135,6 @@
         <p>&copy; <span id="current-year"></span> Sistem de Monitorizare Stupină, automatizat de HexCode</p>
     </footer>
     
-    <script src="script.js?v=1.4"></script>
+    <script src="script.js?v=1.5"></script>
 </body>
 </html> 

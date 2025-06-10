@@ -4,6 +4,8 @@ const PUBLISHED_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-M
 // Variabile globale pentru a stoca datele și perioada curentă
 let allData = null;
 let currentPeriod = 'all';
+let customStartDate = null;
+let customEndDate = null;
 
 // Funcție pentru a elimina posibile elemente de grafic care ar putea fi în cache
 function cleanupOldChartElements() {
@@ -79,6 +81,9 @@ async function fetchSheetData() {
             return processedRow;
         });
         
+        // Sortăm datele după dată (cele mai vechi primele)
+        processedRows.sort((a, b) => a.dateObj - b.dateObj);
+        
         return { headers, rows: processedRows };
     } catch (error) {
         console.error('Eroare la preluarea datelor:', error);
@@ -126,6 +131,22 @@ function filterDataByPeriod(data, period) {
             cutoffDate = new Date(now.getFullYear(), 0, 1);
             break;
             
+        case 'custom':
+            // Interval personalizat
+            if (customStartDate && customEndDate) {
+                const startDate = new Date(customStartDate);
+                // Setăm ora end date la 23:59:59 pentru a include întreaga zi
+                const endDate = new Date(customEndDate);
+                endDate.setHours(23, 59, 59, 999);
+                
+                return data.rows.filter(row => {
+                    return row.dateObj && row.dateObj >= startDate && row.dateObj <= endDate;
+                });
+            } else {
+                // Dacă nu avem intervale definite, returnăm toate datele
+                return data.rows;
+            }
+            
         default:
             return data.rows;
     }
@@ -170,10 +191,22 @@ function getPeriodName(period) {
         'today': 'astăzi',
         'week': 'ultima săptămână',
         'month': 'ultima lună',
-        'year': 'anul curent'
+        'year': 'anul curent',
+        'custom': 'intervalul personalizat'
     };
     
     return periodNames[period] || 'perioada selectată';
+}
+
+// Formatează data pentru afișare în formatul românesc
+function formatDateRO(date) {
+    if (!date) return '';
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}.${month}.${year}`;
 }
 
 // Funcția pentru a actualiza tabelul HTML
@@ -206,7 +239,8 @@ function updateTable(data, period = 'all') {
         try {
             // Folosim obiectul Date creat anterior
             if (row.dateObj && !isNaN(row.dateObj)) {
-                dateValue = row.dateObj.toLocaleString('ro-RO');
+                dateValue = formatDateRO(row.dateObj) + 
+                    ' ' + row.dateObj.toLocaleTimeString('ro-RO', {hour: '2-digit', minute: '2-digit'});
             }
         } catch (e) {
             // Dacă nu se poate formata, folosim valoarea originală
@@ -273,7 +307,8 @@ function updateStats(data) {
     try {
         // Folosim obiectul Date creat anterior
         if (lastRow.dateObj && !isNaN(lastRow.dateObj)) {
-            lastDate = lastRow.dateObj.toLocaleString('ro-RO');
+            lastDate = formatDateRO(lastRow.dateObj) + 
+                ' ' + lastRow.dateObj.toLocaleTimeString('ro-RO', {hour: '2-digit', minute: '2-digit'});
         }
     } catch (e) {
         // Folosim valoarea originală dacă nu se poate formata
@@ -301,9 +336,54 @@ function changePeriod() {
     const periodSelect = document.getElementById('period-select');
     currentPeriod = periodSelect.value;
     
+    // Afișăm sau ascundem intervalul de date personalizate
+    const customDateRangeDiv = document.getElementById('custom-date-range');
+    if (currentPeriod === 'custom') {
+        customDateRangeDiv.classList.add('visible');
+        
+        // Dacă nu sunt setate date, inițializăm cu valori implicite
+        if (!customStartDate || !customEndDate) {
+            const today = new Date();
+            const lastMonth = new Date();
+            lastMonth.setMonth(today.getMonth() - 1);
+            
+            document.getElementById('start-date').value = lastMonth.toISOString().split('T')[0];
+            document.getElementById('end-date').value = today.toISOString().split('T')[0];
+            
+            customStartDate = lastMonth.toISOString().split('T')[0];
+            customEndDate = today.toISOString().split('T')[0];
+        }
+    } else {
+        customDateRangeDiv.classList.remove('visible');
+    }
+    
     if (allData) {
         updateTable(allData, currentPeriod);
     }
+}
+
+// Funcția pentru a aplica intervalul de date personalizat
+function applyCustomDateRange() {
+    const startDateInput = document.getElementById('start-date');
+    const endDateInput = document.getElementById('end-date');
+    
+    customStartDate = startDateInput.value;
+    customEndDate = endDateInput.value;
+    
+    if (customStartDate && customEndDate && allData) {
+        updateTable(allData, 'custom');
+    }
+}
+
+// Funcția pentru a inițializa controalele
+function initControls() {
+    // Setăm data de astăzi ca valoare maximă pentru selectoarele de dată
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('start-date').max = today;
+    document.getElementById('end-date').max = today;
+    
+    // Inițializăm evenimentul de schimbare a perioadei
+    changePeriod();
 }
 
 // Inițializarea paginii
@@ -313,6 +393,9 @@ async function initPage() {
     
     // Curățăm elementele vechi care ar putea fi în cache
     cleanupOldChartElements();
+    
+    // Inițializăm controalele
+    initControls();
     
     // Preluăm și afișăm datele
     allData = await fetchSheetData();
