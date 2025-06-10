@@ -417,20 +417,22 @@ section {
     transition: background-color 0.3s, transform 0.2s;
     min-width: 100px;
     text-align: center;
-    text-decoration: none;
+    text-decoration: none !important;
     margin: 0 5px;
+    user-select: none;
 }
 
 .page-link:hover {
     background-color: #45a049;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    text-decoration: none;
+    text-decoration: none !important;
     color: white;
 }
 
 .page-link:active {
     transform: translateY(1px);
     background-color: #3e8e41;
+    color: white;
 }
 
 .page-link.disabled {
@@ -439,9 +441,30 @@ section {
     cursor: not-allowed;
     box-shadow: none;
     pointer-events: none;
+    opacity: 0.6;
 }
 
-/* Stiluri pentru paginare */
+/* Asigurăm-ne că stilurile sunt clare și nu sunt suprascrise */
+.pagination-controls .page-link {
+    color: white;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.pagination-controls .page-link.disabled {
+    color: #888888;
+    cursor: not-allowed;
+}
+
+/* Stiluri pentru a face link-urile să arate ca butoane */
+.pagination-controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+}
+
+/* Stiluri specifice pentru paginare */
 .pagination {
     display: flex;
     justify-content: space-between;
@@ -449,6 +472,10 @@ section {
     margin: 20px 0;
     flex-wrap: wrap;
     gap: 10px;
+    padding: 10px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .pagination-info {
@@ -457,15 +484,11 @@ section {
     gap: 10px;
 }
 
-.pagination-controls {
-    display: flex;
-    gap: 8px;
-}
-
 #items-per-page {
     padding: 5px;
     border-radius: 4px;
     border: 1px solid #ccc;
+    cursor: pointer;
 }
 
 /* Stiluri pentru afișarea pe ecrane mici */
