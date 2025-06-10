@@ -355,126 +355,72 @@ function getTotalPages() {
     return Math.ceil(filteredData.length / itemsPerPage);
 }
 
+// Funcțiile de navigare între pagini - metode simple
+function goToFirstPage() {
+    console.log('goToFirstPage: Navigare la prima pagină');
+    currentPage = 1;
+    renderCurrentPage();
+}
+
+function goToPrevPage() {
+    console.log('goToPrevPage: Pagina curentă:', currentPage);
+    if (currentPage > 1) {
+        currentPage--;
+        renderCurrentPage();
+    }
+}
+
+function goToNextPage() {
+    const totalPages = getTotalPages();
+    console.log('goToNextPage: Pagina curentă:', currentPage, 'din total:', totalPages);
+    if (currentPage < totalPages) {
+        currentPage++;
+        renderCurrentPage();
+    }
+}
+
+function goToLastPage() {
+    const totalPages = getTotalPages();
+    console.log('goToLastPage: Navigare la ultima pagină:', totalPages);
+    currentPage = totalPages > 0 ? totalPages : 1;
+    renderCurrentPage();
+}
+
+// Funcția pentru a schimba numărul de elemente pe pagină
+function changeItemsPerPage() {
+    const select = document.getElementById('items-per-page');
+    itemsPerPage = parseInt(select.value);
+    console.log('changeItemsPerPage: Număr nou de elemente pe pagină:', itemsPerPage);
+    
+    // Resetăm la prima pagină
+    currentPage = 1;
+    renderCurrentPage();
+}
+
 // Actualizează controalele de paginare
 function updatePaginationControls() {
     const totalPages = getTotalPages();
-    
-    console.log('Actualizare controale paginare:', {
-        currentPage,
-        totalPages,
-        itemsPerPage,
-        totalItems: filteredData.length
-    });
+    console.log('updatePaginationControls: Pagina curentă:', currentPage, 'din total:', totalPages);
     
     document.getElementById('pagination-text').textContent = `Pagina ${currentPage} din ${totalPages}`;
     
-    // Actualizăm starea butoanelor de paginare folosind setAttribute/removeAttribute
-    const firstPageBtn = document.getElementById('first-page');
-    const prevPageBtn = document.getElementById('prev-page');
-    const nextPageBtn = document.getElementById('next-page');
-    const lastPageBtn = document.getElementById('last-page');
-    
-    // Prima pagină și pagina anterioară
-    if (currentPage <= 1) {
-        firstPageBtn.setAttribute('disabled', 'disabled');
-        prevPageBtn.setAttribute('disabled', 'disabled');
-    } else {
-        firstPageBtn.removeAttribute('disabled');
-        prevPageBtn.removeAttribute('disabled');
-    }
-    
-    // Ultima pagină și pagina următoare
-    if (currentPage >= totalPages) {
-        nextPageBtn.setAttribute('disabled', 'disabled');
-        lastPageBtn.setAttribute('disabled', 'disabled');
-    } else {
-        nextPageBtn.removeAttribute('disabled');
-        lastPageBtn.removeAttribute('disabled');
-    }
-    
-    // Debug - afișăm starea butoanelor
-    console.log('Stare butoane paginare după actualizare:', {
-        'first-page': firstPageBtn.hasAttribute('disabled'),
-        'prev-page': prevPageBtn.hasAttribute('disabled'),
-        'next-page': nextPageBtn.hasAttribute('disabled'),
-        'last-page': lastPageBtn.hasAttribute('disabled')
-    });
+    // Actualizăm starea butoanelor
+    document.getElementById('first-page').disabled = currentPage <= 1;
+    document.getElementById('prev-page').disabled = currentPage <= 1;
+    document.getElementById('next-page').disabled = currentPage >= totalPages;
+    document.getElementById('last-page').disabled = currentPage >= totalPages;
 }
 
-// Atașează evenimentele pentru butoanele de paginare
-function attachPaginationEvents() {
-    console.log('Atașare evenimente pentru butoanele de paginare');
-    
-    // Eliminăm mai întâi eventualele evenimente vechi pentru a evita duplicarea
-    const firstPageBtn = document.getElementById('first-page');
-    const prevPageBtn = document.getElementById('prev-page');
-    const nextPageBtn = document.getElementById('next-page');
-    const lastPageBtn = document.getElementById('last-page');
-    
-    // Eliminăm eventListener-ele vechi (dacă există)
-    const oldFirstPageBtn = firstPageBtn.cloneNode(true);
-    const oldPrevPageBtn = prevPageBtn.cloneNode(true);
-    const oldNextPageBtn = nextPageBtn.cloneNode(true);
-    const oldLastPageBtn = lastPageBtn.cloneNode(true);
-    
-    firstPageBtn.parentNode.replaceChild(oldFirstPageBtn, firstPageBtn);
-    prevPageBtn.parentNode.replaceChild(oldPrevPageBtn, prevPageBtn);
-    nextPageBtn.parentNode.replaceChild(oldNextPageBtn, nextPageBtn);
-    lastPageBtn.parentNode.replaceChild(oldLastPageBtn, lastPageBtn);
-    
-    // Atașăm evenimentele click
-    document.getElementById('first-page').onclick = function(e) {
-        console.log('Click pe butonul Prima');
-        goToFirstPage();
-        return false;
-    };
-    
-    document.getElementById('prev-page').onclick = function(e) {
-        console.log('Click pe butonul Anterioară');
-        goToPrevPage();
-        return false;
-    };
-    
-    document.getElementById('next-page').onclick = function(e) {
-        console.log('Click pe butonul Următoarea');
-        goToNextPage();
-        return false;
-    };
-    
-    document.getElementById('last-page').onclick = function(e) {
-        console.log('Click pe butonul Ultima');
-        goToLastPage();
-        return false;
-    };
-}
-
-// Funcția pentru a actualiza tabelul HTML
-function updateTable(data, period = 'all') {
-    if (!data) return;
-    
-    // Resetăm pagina curentă la 1 când se schimbă filtrul
-    currentPage = 1;
-    
-    // Filtrare date în funcție de perioada selectată
-    filteredData = filterDataByPeriod(data, period);
+// Randează pagina curentă din datele filtrate
+function renderCurrentPage() {
+    console.log('renderCurrentPage: Pagina curentă:', currentPage);
+    if (!filteredData || filteredData.length === 0) {
+        console.log('renderCurrentPage: Nu există date de afișat');
+        return;
+    }
     
     const tableBody = document.getElementById('table-body');
     tableBody.innerHTML = '';
-    
-    if (filteredData.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7" class="loading-message">Nu există date pentru perioada selectată</td></tr>';
-        
-        // Actualizăm controalele de paginare
-        document.getElementById('pagination-text').textContent = 'Pagina 0 din 0';
-        
-        // Dezactivăm toate butoanele
-        document.getElementById('first-page').setAttribute('disabled', 'disabled');
-        document.getElementById('prev-page').setAttribute('disabled', 'disabled');
-        document.getElementById('next-page').setAttribute('disabled', 'disabled');
-        document.getElementById('last-page').setAttribute('disabled', 'disabled');
-        
-        return;
-    }
     
     // Adăugăm rândurile în ordine inversă (cele mai recente primele)
     const reversedRows = [...filteredData].reverse();
@@ -483,36 +429,15 @@ function updateTable(data, period = 'all') {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = Math.min(startIndex + itemsPerPage, reversedRows.length);
     
+    console.log('renderCurrentPage: Afișare rânduri de la', startIndex, 'la', endIndex - 1);
+    
     // Obținem datele pentru pagina curentă
     const rowsToShow = reversedRows.slice(startIndex, endIndex);
     
     // Verificăm dacă afișăm date de la toți stupii (pentru a adăuga o coloană suplimentară)
     const isShowingAllHives = currentSheet === 'all';
     
-    // Actualizăm antetul tabelului pentru a adăuga sau elimina coloana "Stup"
-    const tableHeader = document.querySelector('table thead tr');
-    
-    // Verificăm dacă există deja o coloană pentru stup
-    const hasHiveColumn = Array.from(tableHeader.children).some(th => th.textContent === 'Stup');
-    
-    if (isShowingAllHives && !hasHiveColumn) {
-        // Adăugăm coloana pentru stup
-        const hiveHeader = document.createElement('th');
-        hiveHeader.textContent = 'Stup';
-        tableHeader.appendChild(hiveHeader);
-    } else if (!isShowingAllHives && hasHiveColumn) {
-        // Eliminăm coloana pentru stup
-        const lastHeaderColumn = tableHeader.lastElementChild;
-        if (lastHeaderColumn && lastHeaderColumn.textContent === 'Stup') {
-            tableHeader.removeChild(lastHeaderColumn);
-        }
-    }
-    
-    // Actualizăm colspan pentru mesajul de încărcare
-    const colspan = isShowingAllHives ? 8 : 7;
-    tableBody.innerHTML = '<tr><td colspan="' + colspan + '" class="loading-message">Se încarcă datele...</td></tr>';
-    tableBody.innerHTML = '';
-    
+    // Adăugăm rândurile în tabel
     rowsToShow.forEach(row => {
         const tr = document.createElement('tr');
         
@@ -577,7 +502,60 @@ function updateTable(data, period = 'all') {
         tableBody.appendChild(tr);
     });
     
-    // Actualizare statistici pentru perioada selectată
+    // Actualizăm controalele de paginare după randare
+    updatePaginationControls();
+}
+
+// Funcția pentru a actualiza tabelul HTML
+function updateTable(data, period = 'all') {
+    if (!data) return;
+    
+    console.log('updateTable: Actualizare tabel cu perioada:', period);
+    
+    // Resetăm pagina curentă la 1 când se schimbă filtrul
+    currentPage = 1;
+    
+    // Filtrare date în funcție de perioada selectată
+    filteredData = filterDataByPeriod(data, period);
+    
+    const tableBody = document.getElementById('table-body');
+    
+    if (filteredData.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="loading-message">Nu există date pentru perioada selectată</td></tr>';
+        
+        // Actualizăm controalele de paginare
+        document.getElementById('pagination-text').textContent = 'Pagina 0 din 0';
+        document.getElementById('first-page').disabled = true;
+        document.getElementById('prev-page').disabled = true;
+        document.getElementById('next-page').disabled = true;
+        document.getElementById('last-page').disabled = true;
+        
+        return;
+    }
+    
+    // Verificăm dacă afișăm date de la toți stupii (pentru a adăuga o coloană suplimentară)
+    const isShowingAllHives = currentSheet === 'all';
+    
+    // Actualizăm antetul tabelului pentru a adăuga sau elimina coloana "Stup"
+    const tableHeader = document.querySelector('table thead tr');
+    
+    // Verificăm dacă există deja o coloană pentru stup
+    const hasHiveColumn = Array.from(tableHeader.children).some(th => th.textContent === 'Stup');
+    
+    if (isShowingAllHives && !hasHiveColumn) {
+        // Adăugăm coloana pentru stup
+        const hiveHeader = document.createElement('th');
+        hiveHeader.textContent = 'Stup';
+        tableHeader.appendChild(hiveHeader);
+    } else if (!isShowingAllHives && hasHiveColumn) {
+        // Eliminăm coloana pentru stup
+        const lastHeaderColumn = tableHeader.lastElementChild;
+        if (lastHeaderColumn && lastHeaderColumn.textContent === 'Stup') {
+            tableHeader.removeChild(lastHeaderColumn);
+        }
+    }
+    
+    // Actualizăm statistici pentru perioada selectată
     const stats = calculatePeriodStats(filteredData);
     const periodName = getPeriodName(period);
     
@@ -585,67 +563,8 @@ function updateTable(data, period = 'all') {
     document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
     document.getElementById('period-count').textContent = stats.count + ' măsurători';
     
-    // Actualizăm controalele de paginare
-    updatePaginationControls();
-    
-    // Reatașăm evenimentele pentru butoanele de paginare
-    attachPaginationEvents();
-}
-
-// Funcțiile de navigare între pagini
-function goToFirstPage() {
-    console.log('goToFirstPage apelat, pagina curentă:', currentPage);
-    currentPage = 1;
-    updateTable(allData, currentPeriod);
-}
-
-function goToPrevPage() {
-    console.log('goToPrevPage apelat, pagina curentă:', currentPage);
-    if (currentPage > 1) {
-        currentPage--;
-        updateTable(allData, currentPeriod);
-    }
-}
-
-function goToNextPage() {
-    console.log('goToNextPage apelat, pagina curentă:', currentPage);
-    const totalPages = getTotalPages();
-    console.log('  - totalPages:', totalPages);
-    if (currentPage < totalPages) {
-        currentPage++;
-        updateTable(allData, currentPeriod);
-    }
-}
-
-function goToLastPage() {
-    console.log('goToLastPage apelat, pagina curentă:', currentPage);
-    currentPage = getTotalPages();
-    updateTable(allData, currentPeriod);
-}
-
-// Funcția pentru a schimba numărul de elemente pe pagină
-function changeItemsPerPage() {
-    const select = document.getElementById('items-per-page');
-    itemsPerPage = parseInt(select.value);
-    
-    // Recalculăm pagina curentă pentru a menține aceeași poziție aproximativă
-    const totalItems = filteredData.length;
-    const firstItemIndex = (currentPage - 1) * itemsPerPage;
-    
-    // Recalculăm pagina pentru a menține primul element vizibil
-    currentPage = Math.floor(firstItemIndex / itemsPerPage) + 1;
-    
-    // Ne asigurăm că pagina curentă este validă
-    if (currentPage < 1) {
-        currentPage = 1;
-    }
-    
-    const totalPages = getTotalPages();
-    if (currentPage > totalPages) {
-        currentPage = totalPages > 0 ? totalPages : 1;
-    }
-    
-    updateTable(allData, currentPeriod);
+    // Randăm pagina curentă
+    renderCurrentPage();
 }
 
 // Funcția pentru a actualiza statisticile din dashboard
@@ -741,81 +660,55 @@ function populateSheetSelector() {
     sheetSelect.value = currentSheet;
 }
 
-// Funcția pentru a schimba perioada
+// Funcția pentru a schimba perioada selectată
 function changePeriod() {
     const periodSelect = document.getElementById('period-select');
-    const newPeriod = periodSelect.value;
+    const customDateRange = document.getElementById('custom-date-range');
     
-    console.log('Schimbare perioadă:', currentPeriod, '->', newPeriod);
-    currentPeriod = newPeriod;
+    // Actualizăm perioada curentă
+    currentPeriod = periodSelect.value;
+    console.log('changePeriod: Noua perioadă selectată:', currentPeriod);
     
-    // Afișăm sau ascundem intervalul de date personalizate
-    const customDateRangeDiv = document.getElementById('custom-date-range');
+    // Afișăm/ascundem selectorul de dată personalizată
     if (currentPeriod === 'custom') {
-        customDateRangeDiv.classList.add('visible');
-        
-        // Dacă nu sunt setate date, inițializăm cu valori implicite
-        if (!customStartDate || !customEndDate) {
-            const today = new Date();
-            const lastMonth = new Date();
-            lastMonth.setMonth(today.getMonth() - 1);
-            
-            document.getElementById('start-date').value = lastMonth.toISOString().split('T')[0];
-            document.getElementById('end-date').value = today.toISOString().split('T')[0];
-            
-            customStartDate = lastMonth.toISOString().split('T')[0];
-            customEndDate = today.toISOString().split('T')[0];
-        }
+        customDateRange.style.display = 'flex';
     } else {
-        customDateRangeDiv.classList.remove('visible');
-    }
-    
-    if (allData) {
-        // Actualizăm tabelul pentru noua perioadă
-        console.log('Actualizare tabel pentru perioada:', currentPeriod);
+        customDateRange.style.display = 'none';
+        
+        // Actualizăm tabelul și statisticile pentru noua perioadă
         updateTable(allData, currentPeriod);
-        
-        // Asigurăm-ne că statisticile perioadei sunt actualizate
-        const filteredData = filterDataByPeriod(allData, currentPeriod);
-        const stats = calculatePeriodStats(filteredData);
-        console.log('Statistici calculate pentru perioada', currentPeriod, ':', stats);
-        
-        // Actualizăm manual statisticile
-        document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
-        document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
-        document.getElementById('period-count').textContent = stats.count + ' măsurători';
     }
 }
 
 // Funcția pentru a aplica intervalul de date personalizat
 function applyCustomDateRange() {
+    console.log('applyCustomDateRange: Aplicare interval de date personalizat');
+    
+    // Preluăm datele din selectoare
     const startDateInput = document.getElementById('start-date');
     const endDateInput = document.getElementById('end-date');
     
-    customStartDate = startDateInput.value;
-    customEndDate = endDateInput.value;
-    
-    console.log('Interval personalizat aplicat:', customStartDate, 'până la', customEndDate);
-    
-    if (customStartDate && customEndDate && allData) {
-        // Setăm perioada curentă la 'custom' în caz că nu era deja setată
-        currentPeriod = 'custom';
-        document.getElementById('period-select').value = 'custom';
-        
-        // Actualizăm tabelul
-        console.log('Actualizare tabel pentru interval personalizat');
-        updateTable(allData, 'custom');
-        
-        // Asigurăm-ne că statisticile perioadei sunt actualizate
-        const filteredData = filterDataByPeriod(allData, 'custom');
-        const stats = calculatePeriodStats(filteredData);
-        console.log('Statistici calculate pentru interval personalizat:', stats);
-        
-        // Actualizăm manual statisticile
-        document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
-        document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
-        document.getElementById('period-count').textContent = stats.count + ' măsurători';
+    // Verificăm dacă sunt valide
+    if (!startDateInput.value || !endDateInput.value) {
+        alert('Vă rugăm să selectați ambele date pentru intervalul personalizat.');
+        return;
     }
+    
+    // Creăm obiecte Date
+    customStartDate = new Date(startDateInput.value);
+    customEndDate = new Date(endDateInput.value);
+    
+    // Setăm sfârșitul zilei pentru data de sfârșit
+    customEndDate.setHours(23, 59, 59, 999);
+    
+    // Verificăm dacă intervalul este valid
+    if (customStartDate > customEndDate) {
+        alert('Data de început trebuie să fie anterioară datei de sfârșit.');
+        return;
+    }
+    
+    // Actualizăm tabelul cu datele filtrate
+    updateTable(allData, 'custom');
 }
 
 // Funcția pentru a combina datele de la toți stupii
@@ -895,10 +788,10 @@ function changeSheet() {
     const sheetSelect = document.getElementById('sheet-select');
     const newSheet = sheetSelect.value;
     
-    console.log('Schimbare stup:', currentSheet, '->', newSheet);
+    console.log('changeSheet: Schimbare stup:', currentSheet, '->', newSheet);
     
     if (newSheet === currentSheet) {
-        console.log('Același stup este deja selectat.');
+        console.log('changeSheet: Același stup este deja selectat.');
         return;
     }
     
@@ -910,7 +803,7 @@ function changeSheet() {
         
         // Verificăm dacă a fost selectată opțiunea "Toți stupii"
         if (currentSheet === 'all') {
-            console.log('Preluăm date pentru toți stupii');
+            console.log('changeSheet: Preluăm date pentru toți stupii');
             
             // Arătăm un indicator de încărcare
             document.getElementById('table-body').innerHTML = 
@@ -921,7 +814,7 @@ function changeSheet() {
             const missingSheets = allSheets.filter(sheet => !sheetsData[sheet]);
             
             if (missingSheets.length > 0) {
-                console.log('Se vor încărca foile lipsă:', missingSheets);
+                console.log('changeSheet: Se vor încărca foile lipsă:', missingSheets);
                 
                 // Preluăm date pentru foile lipsă
                 const fetchPromises = missingSheets.map(sheet => fetchSheetData(sheet).catch(err => {
@@ -932,43 +825,47 @@ function changeSheet() {
                 Promise.all(fetchPromises).then((results) => {
                     const allFailed = results.every(result => result === null);
                     if (allFailed && missingSheets.length === allSheets.length) {
-                        console.error('Toate preluările de date au eșuat!');
+                        console.error('changeSheet: Toate preluările de date au eșuat!');
                         document.getElementById('error-container').style.display = 'block';
                         return;
                     }
                     
-                    console.log('Toate foile lipsă au fost încărcate, se combină datele');
+                    console.log('changeSheet: Toate foile lipsă au fost încărcate, se combină datele');
                     // Combinăm datele de la toate foile
                     combinedData = combineAllSheetsData();
                     
                     if (combinedData && combinedData.rows.length > 0) {
-                        console.log(`S-au combinat ${combinedData.rows.length} rânduri de date`);
+                        console.log(`changeSheet: S-au combinat ${combinedData.rows.length} rânduri de date`);
                         allData = combinedData;
                         
-                        // Actualizăm tabelul și statisticile
+                        // Actualizăm tabelul pentru perioada curentă
                         updateTable(allData, currentPeriod);
+                        
+                        // Actualizăm statisticile
                         updateStats(allData);
                     } else {
-                        console.error('Nu s-au putut combina datele după încărcarea foilor lipsă!');
+                        console.error('changeSheet: Nu s-au putut combina datele după încărcarea foilor lipsă!');
                         document.getElementById('table-body').innerHTML = 
                             '<tr><td colspan="8" class="loading-message">Nu s-au putut încărca datele pentru toți stupii</td></tr>';
                         document.getElementById('error-container').style.display = 'block';
                     }
                 });
             } else {
-                console.log('Toate foile sunt deja încărcate, se combină datele');
+                console.log('changeSheet: Toate foile sunt deja încărcate, se combină datele');
                 // Combinăm datele de la toate foile
                 combinedData = combineAllSheetsData();
                 
                 if (combinedData && combinedData.rows.length > 0) {
-                    console.log(`S-au combinat ${combinedData.rows.length} rânduri de date`);
+                    console.log(`changeSheet: S-au combinat ${combinedData.rows.length} rânduri de date`);
                     allData = combinedData;
                     
-                    // Actualizăm tabelul și statisticile
+                    // Actualizăm tabelul pentru perioada curentă
                     updateTable(allData, currentPeriod);
+                    
+                    // Actualizăm statisticile
                     updateStats(allData);
                 } else {
-                    console.error('Nu s-au putut combina datele!');
+                    console.error('changeSheet: Nu s-au putut combina datele!');
                     document.getElementById('table-body').innerHTML = 
                         '<tr><td colspan="8" class="loading-message">Nu s-au putut încărca datele pentru toți stupii</td></tr>';
                     document.getElementById('error-container').style.display = 'block';
@@ -977,7 +874,7 @@ function changeSheet() {
         } else {
             // Preluăm date pentru stupul selectat dacă nu avem deja
             if (!sheetsData[currentSheet]) {
-                console.log(`Preluăm date pentru stupul: ${currentSheet}`);
+                console.log(`changeSheet: Preluăm date pentru stupul: ${currentSheet}`);
                 // Arătăm un indicator de încărcare
                 document.getElementById('table-body').innerHTML = 
                     '<tr><td colspan="7" class="loading-message">Se încarcă datele pentru stupul selectat...</td></tr>';
@@ -985,14 +882,16 @@ function changeSheet() {
                 // Preluăm date și actualizăm
                 fetchSheetData(currentSheet).then(data => {
                     if (data && data.rows.length > 0) {
-                        console.log(`S-au preluat ${data.rows.length} rânduri de date pentru stupul ${currentSheet}`);
+                        console.log(`changeSheet: S-au preluat ${data.rows.length} rânduri de date pentru stupul ${currentSheet}`);
                         allData = data;
                         
-                        // Actualizăm tabelul și statisticile
+                        // Actualizăm tabelul pentru perioada curentă
                         updateTable(allData, currentPeriod);
+                        
+                        // Actualizăm statisticile
                         updateStats(allData);
                     } else {
-                        console.error(`Nu s-au putut încărca date pentru stupul ${currentSheet} sau nu există date!`);
+                        console.error(`changeSheet: Nu s-au putut încărca date pentru stupul ${currentSheet} sau nu există date!`);
                         document.getElementById('table-body').innerHTML = 
                             '<tr><td colspan="7" class="loading-message">Nu există date pentru stupul selectat</td></tr>';
                         document.getElementById('error-container').style.display = 'block';
@@ -1004,15 +903,17 @@ function changeSheet() {
                     document.getElementById('error-container').style.display = 'block';
                 });
             } else {
-                console.log(`Folosim datele existente pentru stupul: ${currentSheet}`);
+                console.log(`changeSheet: Folosim datele existente pentru stupul: ${currentSheet}`);
                 allData = sheetsData[currentSheet];
                 
                 if (allData && allData.rows.length > 0) {
-                    // Actualizăm tabelul și statisticile
+                    // Actualizăm tabelul pentru perioada curentă
                     updateTable(allData, currentPeriod);
+                    
+                    // Actualizăm statisticile
                     updateStats(allData);
                 } else {
-                    console.error(`Datele pentru stupul ${currentSheet} există dar sunt goale!`);
+                    console.error(`changeSheet: Datele pentru stupul ${currentSheet} există dar sunt goale!`);
                     document.getElementById('table-body').innerHTML = 
                         '<tr><td colspan="7" class="loading-message">Nu există date pentru stupul selectat</td></tr>';
                     document.getElementById('error-container').style.display = 'block';
@@ -1086,9 +987,6 @@ async function initPage() {
     
     // Inițializăm controalele
     initControls();
-    
-    // Atașăm evenimentele pentru butoanele de paginare
-    attachPaginationEvents();
     
     try {
         // Inițial ascundem containerul de eroare
