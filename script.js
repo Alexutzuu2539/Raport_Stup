@@ -3,7 +3,7 @@ const PUBLISHED_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-M
 
 // Variabile globale pentru a stoca datele și perioada curentă
 let allData = null;
-let currentPeriod = 'all';
+let currentPeriod = 'today';
 let customStartDate = null;
 let customEndDate = null;
 
@@ -525,6 +525,9 @@ function initControls() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('start-date').max = today;
     document.getElementById('end-date').max = today;
+    
+    // Setăm valoarea selectată a selectorului de perioadă
+    document.getElementById('period-select').value = currentPeriod;
     
     // Inițializăm evenimentul de schimbare a perioadei
     changePeriod();
