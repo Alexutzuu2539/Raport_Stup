@@ -1,6 +1,10 @@
 // Configurare pentru conectarea la Google Sheets
 const PUBLISHED_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?output=csv';
 
+// Variabile globale pentru a stoca datele și perioada curentă
+let allData = null;
+let currentPeriod = 'all';
+
 // Funcție pentru a elimina posibile elemente de grafic care ar putea fi în cache
 function cleanupOldChartElements() {
     // Verificăm dacă există elemente de grafic din versiunea anterioară
@@ -62,7 +66,20 @@ async function fetchSheetData() {
         // Restul sunt date
         const dataRows = rows.slice(1);
         
-        return { headers, rows: dataRows };
+        // Procesare date pentru a adăuga obiecte Date JavaScript
+        const processedRows = dataRows.map(row => {
+            const processedRow = [...row];  // copiem rândul
+            try {
+                // Convertim string-ul de dată în obiect Date
+                processedRow.dateObj = new Date(row[0]);
+            } catch (e) {
+                // Dacă nu putem converti, folosim data curentă
+                processedRow.dateObj = new Date();
+            }
+            return processedRow;
+        });
+        
+        return { headers, rows: processedRows };
     } catch (error) {
         console.error('Eroare la preluarea datelor:', error);
         document.getElementById('table-body').innerHTML = 
@@ -71,15 +88,76 @@ async function fetchSheetData() {
     }
 }
 
+// Filtrare date în funcție de perioada selectată
+function filterDataByPeriod(data, period) {
+    if (!data || period === 'all') {
+        return data.rows;
+    }
+    
+    const now = new Date();
+    let cutoffDate;
+    
+    if (period === 'week') {
+        // 7 zile în urmă
+        cutoffDate = new Date(now);
+        cutoffDate.setDate(now.getDate() - 7);
+    } else if (period === 'month') {
+        // 30 zile în urmă
+        cutoffDate = new Date(now);
+        cutoffDate.setDate(now.getDate() - 30);
+    }
+    
+    return data.rows.filter(row => {
+        // Folosim proprietatea dateObj adăugată în fetchSheetData
+        return row.dateObj && row.dateObj >= cutoffDate;
+    });
+}
+
+// Calculează statistici pentru perioada selectată
+function calculatePeriodStats(filteredData) {
+    if (!filteredData || filteredData.length === 0) {
+        return {
+            totalHarvest: 0,
+            avgTemperature: 0
+        };
+    }
+    
+    // Calculăm recolta totală adunând doar diferențele pozitive (recolta zilnică)
+    let totalHarvest = 0;
+    let totalTemp = 0;
+    
+    filteredData.forEach(row => {
+        const dailyHarvest = parseFloat(row[3]);
+        if (dailyHarvest > 0) {
+            totalHarvest += dailyHarvest;
+        }
+        
+        totalTemp += parseFloat(row[2]);
+    });
+    
+    return {
+        totalHarvest: totalHarvest.toFixed(2),
+        avgTemperature: (totalTemp / filteredData.length).toFixed(1)
+    };
+}
+
 // Funcția pentru a actualiza tabelul HTML
-function updateTable(data) {
+function updateTable(data, period = 'all') {
     if (!data) return;
+    
+    // Filtrare date în funcție de perioada selectată
+    const filteredData = filterDataByPeriod(data, period);
     
     const tableBody = document.getElementById('table-body');
     tableBody.innerHTML = '';
     
+    if (filteredData.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="loading-message">Nu există date pentru perioada selectată</td></tr>';
+        return;
+    }
+    
     // Adăugăm rândurile în ordine inversă (cele mai recente primele)
-    const reversedRows = [...data.rows].reverse();
+    const reversedRows = [...filteredData].reverse();
     
     // Limităm la maxim 50 de rânduri pentru performanță
     const rowsToShow = reversedRows.slice(0, 50);
@@ -91,10 +169,9 @@ function updateTable(data) {
         const dateCell = document.createElement('td');
         let dateValue = row[0];
         try {
-            // Încercăm să formatăm data dacă este în format corespunzător
-            const date = new Date(dateValue);
-            if (!isNaN(date)) {
-                dateValue = date.toLocaleString('ro-RO');
+            // Folosim obiectul Date creat anterior
+            if (row.dateObj && !isNaN(row.dateObj)) {
+                dateValue = row.dateObj.toLocaleString('ro-RO');
             }
         } catch (e) {
             // Dacă nu se poate formata, folosim valoarea originală
@@ -139,6 +216,11 @@ function updateTable(data) {
         
         tableBody.appendChild(tr);
     });
+    
+    // Actualizare statistici pentru perioada selectată
+    const stats = calculatePeriodStats(filteredData);
+    document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
+    document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
 }
 
 // Funcția pentru a actualiza statisticile din dashboard
@@ -151,9 +233,9 @@ function updateStats(data) {
     // Formatează data
     let lastDate = lastRow[0];
     try {
-        const date = new Date(lastDate);
-        if (!isNaN(date)) {
-            lastDate = date.toLocaleString('ro-RO');
+        // Folosim obiectul Date creat anterior
+        if (lastRow.dateObj && !isNaN(lastRow.dateObj)) {
+            lastDate = lastRow.dateObj.toLocaleString('ro-RO');
         }
     } catch (e) {
         // Folosim valoarea originală dacă nu se poate formata
@@ -176,6 +258,16 @@ function updateStats(data) {
     document.getElementById('rain-status').textContent = lastRow[6];
 }
 
+// Funcția pentru a schimba perioada
+function changePeriod() {
+    const periodSelect = document.getElementById('period-select');
+    currentPeriod = periodSelect.value;
+    
+    if (allData) {
+        updateTable(allData, currentPeriod);
+    }
+}
+
 // Inițializarea paginii
 async function initPage() {
     // Setăm anul curent în footer
@@ -185,10 +277,10 @@ async function initPage() {
     cleanupOldChartElements();
     
     // Preluăm și afișăm datele
-    const data = await fetchSheetData();
-    if (data) {
-        updateTable(data);
-        updateStats(data);
+    allData = await fetchSheetData();
+    if (allData) {
+        updateTable(allData, currentPeriod);
+        updateStats(allData);
     }
 }
 
