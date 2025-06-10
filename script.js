@@ -359,13 +359,93 @@ function getTotalPages() {
 function updatePaginationControls() {
     const totalPages = getTotalPages();
     
+    console.log('Actualizare controale paginare:', {
+        currentPage,
+        totalPages,
+        itemsPerPage,
+        totalItems: filteredData.length
+    });
+    
     document.getElementById('pagination-text').textContent = `Pagina ${currentPage} din ${totalPages}`;
     
-    // Activăm/dezactivăm butoanele de navigare
-    document.getElementById('first-page').disabled = currentPage === 1;
-    document.getElementById('prev-page').disabled = currentPage === 1;
-    document.getElementById('next-page').disabled = currentPage === totalPages;
-    document.getElementById('last-page').disabled = currentPage === totalPages;
+    // Actualizăm starea butoanelor de paginare folosind setAttribute/removeAttribute
+    const firstPageBtn = document.getElementById('first-page');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const lastPageBtn = document.getElementById('last-page');
+    
+    // Prima pagină și pagina anterioară
+    if (currentPage <= 1) {
+        firstPageBtn.setAttribute('disabled', 'disabled');
+        prevPageBtn.setAttribute('disabled', 'disabled');
+    } else {
+        firstPageBtn.removeAttribute('disabled');
+        prevPageBtn.removeAttribute('disabled');
+    }
+    
+    // Ultima pagină și pagina următoare
+    if (currentPage >= totalPages) {
+        nextPageBtn.setAttribute('disabled', 'disabled');
+        lastPageBtn.setAttribute('disabled', 'disabled');
+    } else {
+        nextPageBtn.removeAttribute('disabled');
+        lastPageBtn.removeAttribute('disabled');
+    }
+    
+    // Debug - afișăm starea butoanelor
+    console.log('Stare butoane paginare după actualizare:', {
+        'first-page': firstPageBtn.hasAttribute('disabled'),
+        'prev-page': prevPageBtn.hasAttribute('disabled'),
+        'next-page': nextPageBtn.hasAttribute('disabled'),
+        'last-page': lastPageBtn.hasAttribute('disabled')
+    });
+}
+
+// Atașează evenimentele pentru butoanele de paginare
+function attachPaginationEvents() {
+    console.log('Atașare evenimente pentru butoanele de paginare');
+    
+    // Eliminăm mai întâi eventualele evenimente vechi pentru a evita duplicarea
+    const firstPageBtn = document.getElementById('first-page');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const lastPageBtn = document.getElementById('last-page');
+    
+    // Eliminăm eventListener-ele vechi (dacă există)
+    const oldFirstPageBtn = firstPageBtn.cloneNode(true);
+    const oldPrevPageBtn = prevPageBtn.cloneNode(true);
+    const oldNextPageBtn = nextPageBtn.cloneNode(true);
+    const oldLastPageBtn = lastPageBtn.cloneNode(true);
+    
+    firstPageBtn.parentNode.replaceChild(oldFirstPageBtn, firstPageBtn);
+    prevPageBtn.parentNode.replaceChild(oldPrevPageBtn, prevPageBtn);
+    nextPageBtn.parentNode.replaceChild(oldNextPageBtn, nextPageBtn);
+    lastPageBtn.parentNode.replaceChild(oldLastPageBtn, lastPageBtn);
+    
+    // Atașăm evenimentele click
+    document.getElementById('first-page').onclick = function(e) {
+        console.log('Click pe butonul Prima');
+        goToFirstPage();
+        return false;
+    };
+    
+    document.getElementById('prev-page').onclick = function(e) {
+        console.log('Click pe butonul Anterioară');
+        goToPrevPage();
+        return false;
+    };
+    
+    document.getElementById('next-page').onclick = function(e) {
+        console.log('Click pe butonul Următoarea');
+        goToNextPage();
+        return false;
+    };
+    
+    document.getElementById('last-page').onclick = function(e) {
+        console.log('Click pe butonul Ultima');
+        goToLastPage();
+        return false;
+    };
 }
 
 // Funcția pentru a actualiza tabelul HTML
@@ -386,10 +466,12 @@ function updateTable(data, period = 'all') {
         
         // Actualizăm controalele de paginare
         document.getElementById('pagination-text').textContent = 'Pagina 0 din 0';
-        document.getElementById('first-page').disabled = true;
-        document.getElementById('prev-page').disabled = true;
-        document.getElementById('next-page').disabled = true;
-        document.getElementById('last-page').disabled = true;
+        
+        // Dezactivăm toate butoanele
+        document.getElementById('first-page').setAttribute('disabled', 'disabled');
+        document.getElementById('prev-page').setAttribute('disabled', 'disabled');
+        document.getElementById('next-page').setAttribute('disabled', 'disabled');
+        document.getElementById('last-page').setAttribute('disabled', 'disabled');
         
         return;
     }
@@ -505,15 +587,20 @@ function updateTable(data, period = 'all') {
     
     // Actualizăm controalele de paginare
     updatePaginationControls();
+    
+    // Reatașăm evenimentele pentru butoanele de paginare
+    attachPaginationEvents();
 }
 
 // Funcțiile de navigare între pagini
 function goToFirstPage() {
+    console.log('goToFirstPage apelat, pagina curentă:', currentPage);
     currentPage = 1;
     updateTable(allData, currentPeriod);
 }
 
 function goToPrevPage() {
+    console.log('goToPrevPage apelat, pagina curentă:', currentPage);
     if (currentPage > 1) {
         currentPage--;
         updateTable(allData, currentPeriod);
@@ -521,13 +608,17 @@ function goToPrevPage() {
 }
 
 function goToNextPage() {
-    if (currentPage < getTotalPages()) {
+    console.log('goToNextPage apelat, pagina curentă:', currentPage);
+    const totalPages = getTotalPages();
+    console.log('  - totalPages:', totalPages);
+    if (currentPage < totalPages) {
         currentPage++;
         updateTable(allData, currentPeriod);
     }
 }
 
 function goToLastPage() {
+    console.log('goToLastPage apelat, pagina curentă:', currentPage);
     currentPage = getTotalPages();
     updateTable(allData, currentPeriod);
 }
@@ -936,7 +1027,7 @@ function changeSheet() {
     }
 }
 
-// Funcția pentru a inițializa controalele
+// Inițializarea controalelor
 function initControls() {
     // Setăm data de astăzi ca valoare maximă pentru selectoarele de dată
     const today = new Date().toISOString().split('T')[0];
@@ -955,6 +1046,31 @@ function initControls() {
     // Setăm valoarea implicită pentru numărul de elemente pe pagină
     document.getElementById('items-per-page').value = itemsPerPage.toString();
     
+    // Setăm evenimentele pentru butoanele de paginare
+    document.getElementById('first-page').addEventListener('click', function(e) {
+        console.log('Click pe butonul Prima');
+        e.preventDefault();
+        goToFirstPage();
+    });
+    
+    document.getElementById('prev-page').addEventListener('click', function(e) {
+        console.log('Click pe butonul Anterioară');
+        e.preventDefault();
+        goToPrevPage();
+    });
+    
+    document.getElementById('next-page').addEventListener('click', function(e) {
+        console.log('Click pe butonul Următoarea');
+        e.preventDefault();
+        goToNextPage();
+    });
+    
+    document.getElementById('last-page').addEventListener('click', function(e) {
+        console.log('Click pe butonul Ultima');
+        e.preventDefault();
+        goToLastPage();
+    });
+    
     // Inițializăm și începem actualizarea datei și orei
     updateCurrentDateTime();
     setInterval(updateCurrentDateTime, 1000);
@@ -970,6 +1086,9 @@ async function initPage() {
     
     // Inițializăm controalele
     initControls();
+    
+    // Atașăm evenimentele pentru butoanele de paginare
+    attachPaginationEvents();
     
     try {
         // Inițial ascundem containerul de eroare
