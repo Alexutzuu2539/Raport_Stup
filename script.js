@@ -1,6 +1,31 @@
 // Configurare pentru conectarea la Google Sheets
 const PUBLISHED_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?output=csv';
 
+// Funcție pentru a elimina posibile elemente de grafic care ar putea fi în cache
+function cleanupOldChartElements() {
+    // Verificăm dacă există elemente de grafic din versiunea anterioară
+    const oldCharts = document.querySelectorAll('.charts, .chart-container, .chart-row, canvas');
+    if (oldCharts.length > 0) {
+        console.log('Eliminăm elemente de grafic rămase în cache:', oldCharts.length);
+        oldCharts.forEach(el => {
+            if (el && el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
+        });
+    }
+    
+    // Verificăm și script-uri externe pentru Chart.js
+    const oldScripts = document.querySelectorAll('script[src*="chart.js"]');
+    if (oldScripts.length > 0) {
+        console.log('Eliminăm script-uri Chart.js rămase în cache:', oldScripts.length);
+        oldScripts.forEach(el => {
+            if (el && el.parentNode) {
+                el.parentNode.removeChild(el);
+            }
+        });
+    }
+}
+
 // Funcția pentru a prelua datele din Google Sheets (format CSV)
 async function fetchSheetData() {
     try {
@@ -155,6 +180,9 @@ function updateStats(data) {
 async function initPage() {
     // Setăm anul curent în footer
     document.getElementById('current-year').textContent = new Date().getFullYear();
+    
+    // Curățăm elementele vechi care ar putea fi în cache
+    cleanupOldChartElements();
     
     // Preluăm și afișăm datele
     const data = await fetchSheetData();

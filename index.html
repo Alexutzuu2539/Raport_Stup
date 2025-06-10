@@ -3,13 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Monitorizare Stupină</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=1.2">
+    <script>
+        // Forță reload cu parametru de versiune pentru a evita cache-ul
+        (function() {
+            const currentUrl = window.location.href;
+            if (currentUrl.indexOf('v=1.2') === -1) {
+                const newUrl = currentUrl.indexOf('?') === -1 
+                    ? currentUrl + '?v=1.2' 
+                    : currentUrl + '&v=1.2';
+                window.location.href = newUrl;
+            }
+        })();
+    </script>
 </head>
 <body>
     <header>
         <h1>Sistem de Monitorizare a Stupilor</h1>
-        <p>Date actualizate automat din Google Sheets</p>
+        <p>, automatizat de HexCode</p>
     </header>
     
     <main>
@@ -69,10 +84,9 @@
     </main>
     
     <footer>
-        <p>&copy; <span id="current-year"></span> Sistem de Monitorizare Stupină</p>
-        <p>Date actualizate automat din <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pubhtml" target="_blank">Google Sheets</a></p>
+        <p>&copy; <span id="current-year"></span> Sistem de Monitorizare Stupină, automatizat de HexCode</p>
     </footer>
     
-    <script src="script.js"></script>
+    <script src="script.js?v=1.2"></script>
 </body>
 </html> 
