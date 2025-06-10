@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitorizare Stupină</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+</head>
+<body>
+    <header>
+        <h1>Sistem de Monitorizare a Stupilor</h1>
+        <p>Date actualizate automat din Google Sheets</p>
+    </header>
+    
+    <main>
+        <section class="dashboard">
+            <h2>Tablou de Bord</h2>
+            <div class="stats-container">
+                <div class="stat-card">
+                    <h3>Ultima actualizare</h3>
+                    <p id="last-update">Se încarcă...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Greutate curentă</h3>
+                    <p id="current-weight">Se încarcă...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Temperatură</h3>
+                    <p id="current-temp">Se încarcă...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Total recoltă</h3>
+                    <p id="total-harvest">Se încarcă...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Baterie</h3>
+                    <p id="battery-level">Se încarcă...</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Ploaie</h3>
+                    <p id="rain-status">Se încarcă...</p>
+                </div>
+            </div>
+        </section>
+        
+        <section class="charts">
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Evoluția greutății stupului</h3>
+                    <canvas id="weight-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Evoluția temperaturii</h3>
+                    <canvas id="temp-chart"></canvas>
+                </div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Evoluția recoltei</h3>
+                    <canvas id="harvest-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Starea bateriei</h3>
+                    <canvas id="battery-chart"></canvas>
+                </div>
+            </div>
+        </section>
+        
+        <section class="data-table">
+            <h2>Toate măsurătorile</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Greutate (kg)</th>
+                            <th>Temperatură (°C)</th>
+                            <th>Diferență (kg)</th>
+                            <th>Total recoltă (kg)</th>
+                            <th>Baterie (V)</th>
+                            <th>Ploaie</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body">
+                        <tr>
+                            <td colspan="7" class="loading-message">Se încarcă datele...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+    
+    <footer>
+        <p>&copy; <span id="current-year"></span> Sistem de Monitorizare Stupină</p>
+        <p>Date actualizate automat din <a href="https://docs.google.com/spreadsheets" target="_blank">Google Sheets</a></p>
+    </footer>
+    
+    <script src="script.js"></script>
+</body>
+</html> 
