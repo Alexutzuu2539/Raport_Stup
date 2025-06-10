@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ro" class="dark-theme">
+<html lang="ro">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,15 +7,15 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Monitorizare Stupină</title>
-    <link rel="stylesheet" href="styles.css?v=1.9">
+    <link rel="stylesheet" href="styles.css?v=1.8">
     <script>
         // Forță reload cu parametru de versiune pentru a evita cache-ul
         (function() {
             const currentUrl = window.location.href;
-            if (currentUrl.indexOf('v=1.9') === -1) {
+            if (currentUrl.indexOf('v=1.8') === -1) {
                 const newUrl = currentUrl.indexOf('?') === -1 
-                    ? currentUrl + '?v=1.9' 
-                    : currentUrl + '&v=1.9';
+                    ? currentUrl + '?v=1.8' 
+                    : currentUrl + '&v=1.8';
                 window.location.href = newUrl;
             }
         })();
@@ -25,11 +25,6 @@
     <div id="current-datetime" class="current-datetime">
         <span id="current-date"></span>
         <span id="current-time"></span>
-    </div>
-    
-    <div id="theme-toggle" class="theme-toggle" title="Schimbă tema">
-        <span class="theme-icon light-icon">☀️</span>
-        <span class="theme-icon dark-icon">🌙</span>
     </div>
     
     <header>
@@ -168,6 +163,6 @@
         <p>&copy; <span id="current-year"></span> Sistem de Monitorizare Stupină, automatizat de HexCode</p>
     </footer>
     
-    <script src="script.js?v=1.9"></script>
+    <script src="script.js?v=1.8"></script>
 </body>
 </html> 
