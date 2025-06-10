@@ -1,4 +1,9 @@
 // URL-uri pentru fiecare foaie publicată (redenumite ca stupi pentru interfață)
+// ATENȚIE: Aceste URL-uri ar putea fi expirate dacă Google Sheets generează noi URL-uri de publicare
+// Pentru a obține URL-uri actualizate, deschideți foaia de calcul, mergeți la Fișier > Publicare pe web
+// Selectați opțiunea "Foaie de calcul" și formatul "Valori separate prin virgule (.csv)"
+// Copiați link-ul generat și înlocuiți URL-urile de mai jos
+
 const SHEET_URLS = {
     'foaie1': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?output=csv',
     'foaie2': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE4-_BmtoGvaWD5I_lI0GG-OavL6mTa18wn_ON87Tvw-B1FoGWhBGI1Q-JHjU5pCVIEiYu09ii6bNB/pub?output=csv',
@@ -86,8 +91,29 @@ async function fetchSheetData(sheetName = currentSheet) {
             return null;
         }
         
+        console.log(`Începe preluarea datelor pentru foaia ${sheetName} de la URL:`, SHEET_URLS[sheetName]);
+        
         const response = await fetch(SHEET_URLS[sheetName]);
+        
+        // Verificăm statusul HTTP
+        if (!response.ok) {
+            console.error(`Eroare HTTP la preluarea datelor pentru foaia ${sheetName}: ${response.status} ${response.statusText}`);
+            document.getElementById('table-body').innerHTML = 
+                `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: HTTP ${response.status}</td></tr>`;
+            return null;
+        }
+        
         const text = await response.text();
+        
+        console.log(`S-au primit ${text.length} caractere pentru foaia ${sheetName}`);
+        
+        // Verificăm dacă am primit un text gol sau prea scurt (posibilă eroare)
+        if (!text || text.length < 10) {
+            console.error(`Răspuns prea scurt sau gol pentru foaia ${sheetName}: "${text}"`);
+            document.getElementById('table-body').innerHTML = 
+                `<tr><td colspan="8" class="loading-message">Eroare: Răspuns gol sau invalid de la Google Sheets</td></tr>`;
+            return null;
+        }
         
         // Debug - afișăm răspunsul brut
         console.log(`Răspuns CSV brut pentru foaia ${sheetName}:`, text.substring(0, 500) + '...');
@@ -117,16 +143,37 @@ async function fetchSheetData(sheetName = currentSheet) {
             return values;
         });
         
+        console.log(`Foaia ${sheetName}: s-au parsat ${rows.length} rânduri`);
+        
+        // Verificăm dacă avem rânduri valide
+        if (rows.length < 2) {  // cel puțin antete + un rând de date
+            console.error(`Prea puține rânduri pentru foaia ${sheetName}: ${rows.length}`);
+            document.getElementById('table-body').innerHTML = 
+                `<tr><td colspan="8" class="loading-message">Eroare: Date insuficiente sau format invalid</td></tr>`;
+            return null;
+        }
+        
         // Prima linie conține anteturile
         const headers = rows[0];
         // Restul sunt date
         const dataRows = rows.slice(1);
+        
+        // Verificăm dacă antetele sunt valide
+        if (headers.length < 5) {
+            console.error(`Antete insuficiente pentru foaia ${sheetName}: ${headers.join(', ')}`);
+            document.getElementById('table-body').innerHTML = 
+                `<tr><td colspan="8" class="loading-message">Eroare: Format invalid al datelor</td></tr>`;
+            return null;
+        }
         
         // Debug - afișăm primul și ultimul rând
         if (dataRows.length > 0) {
             console.log(`Anteturi pentru foaia ${sheetName}:`, headers);
             console.log(`Primul rând pentru foaia ${sheetName}:`, dataRows[0]);
             console.log(`Ultimul rând pentru foaia ${sheetName}:`, dataRows[dataRows.length - 1]);
+        } else {
+            console.warn(`Foaia ${sheetName} nu conține date!`);
+            return { headers, rows: [] };
         }
         
         // Verifică dacă există coloana pentru ID-ul stupului
@@ -150,6 +197,8 @@ async function fetchSheetData(sheetName = currentSheet) {
         
         // Sortăm datele după dată (cele mai vechi primele)
         processedRows.sort((a, b) => a.dateObj - b.dateObj);
+        
+        console.log(`Foaia ${sheetName}: ${processedRows.length} rânduri procesate și sortate`);
         
         // Organizăm datele pe stupi
         sheetsData[sheetName] = { headers, rows: processedRows };
@@ -683,17 +732,28 @@ function combineAllSheetsData() {
     const allSheets = Object.keys(SHEET_URLS);
     let combinedRows = [];
     
+    console.log('Începe combinarea datelor de la toate foile:', allSheets);
+    
     // Verificăm dacă avem date pentru toate foile
     const missingSheets = allSheets.filter(sheet => !sheetsData[sheet]);
     
     if (missingSheets.length > 0) {
-        console.log('Lipsesc date pentru foile:', missingSheets);
+        console.error('Lipsesc date pentru foile:', missingSheets);
+        return null;
+    }
+    
+    // Verificăm dacă fiecare foaie are date
+    const emptySheetsCount = allSheets.filter(sheet => !sheetsData[sheet].rows || sheetsData[sheet].rows.length === 0).length;
+    if (emptySheetsCount === allSheets.length) {
+        console.error('Toate foile sunt goale!');
         return null;
     }
     
     // Combinăm toate datele într-un singur array
     allSheets.forEach(sheet => {
-        if (sheetsData[sheet] && sheetsData[sheet].rows) {
+        if (sheetsData[sheet] && sheetsData[sheet].rows && sheetsData[sheet].rows.length > 0) {
+            console.log(`Adăugare ${sheetsData[sheet].rows.length} rânduri de la foaia ${sheet}`);
+            
             // Adăugăm un identificator pentru stup pentru a ști de unde provine fiecare rând
             const rowsWithSheetId = sheetsData[sheet].rows.map(row => {
                 // Creăm o copie a rândului și adăugăm ID-ul foii
@@ -703,19 +763,39 @@ function combineAllSheetsData() {
             });
             
             combinedRows = combinedRows.concat(rowsWithSheetId);
+        } else {
+            console.warn(`Foaia ${sheet} nu are date sau nu este încă încărcată`);
         }
     });
+    
+    if (combinedRows.length === 0) {
+        console.error('Nu s-a putut combina niciun rând de date!');
+        return null;
+    }
+    
+    console.log(`Total rânduri combinate: ${combinedRows.length}`);
     
     // Sortăm datele după dată (cele mai vechi primele)
     combinedRows.sort((a, b) => a.dateObj - b.dateObj);
     
     // Creăm un obiect similar cu cel returnat de fetchSheetData
-    if (combinedRows.length > 0 && sheetsData[allSheets[0]]) {
-        // Folosim anteturile de la prima foaie
-        const headers = sheetsData[allSheets[0]].headers;
+    if (combinedRows.length > 0) {
+        // Folosim anteturile de la prima foaie care are date
+        const firstSheetWithData = allSheets.find(sheet => 
+            sheetsData[sheet] && sheetsData[sheet].headers && sheetsData[sheet].rows.length > 0
+        );
+        
+        if (!firstSheetWithData) {
+            console.error('Nu s-a găsit nicio foaie cu date valide!');
+            return null;
+        }
+        
+        const headers = sheetsData[firstSheetWithData].headers;
+        console.log('Combinare completă. Se returnează date combinate cu anteturile:', headers);
         return { headers, rows: combinedRows };
     }
     
+    console.error('Nu s-a putut crea obiectul de date combinate!');
     return null;
 }
 
@@ -733,72 +813,126 @@ function changeSheet() {
     
     currentSheet = newSheet;
     
-    // Verificăm dacă a fost selectată opțiunea "Toți stupii"
-    if (currentSheet === 'all') {
-        console.log('Preluăm date pentru toți stupii');
+    try {
+        // Inițial ascundem containerul de eroare
+        document.getElementById('error-container').style.display = 'none';
         
-        // Preluăm toate foile care nu au fost încă încărcate
-        const allSheets = Object.keys(SHEET_URLS);
-        const missingSheets = allSheets.filter(sheet => !sheetsData[sheet]);
-        
-        if (missingSheets.length > 0) {
+        // Verificăm dacă a fost selectată opțiunea "Toți stupii"
+        if (currentSheet === 'all') {
+            console.log('Preluăm date pentru toți stupii');
+            
             // Arătăm un indicator de încărcare
             document.getElementById('table-body').innerHTML = 
                 '<tr><td colspan="8" class="loading-message">Se încarcă datele pentru toți stupii...</td></tr>';
             
-            // Preluăm date pentru foile lipsă
-            const fetchPromises = missingSheets.map(sheet => fetchSheetData(sheet));
+            // Preluăm toate foile care nu au fost încă încărcate
+            const allSheets = Object.keys(SHEET_URLS);
+            const missingSheets = allSheets.filter(sheet => !sheetsData[sheet]);
             
-            Promise.all(fetchPromises).then(() => {
+            if (missingSheets.length > 0) {
+                console.log('Se vor încărca foile lipsă:', missingSheets);
+                
+                // Preluăm date pentru foile lipsă
+                const fetchPromises = missingSheets.map(sheet => fetchSheetData(sheet).catch(err => {
+                    console.error(`Eroare la preluarea datelor pentru foaia ${sheet}:`, err);
+                    return null;
+                }));
+                
+                Promise.all(fetchPromises).then((results) => {
+                    const allFailed = results.every(result => result === null);
+                    if (allFailed && missingSheets.length === allSheets.length) {
+                        console.error('Toate preluările de date au eșuat!');
+                        document.getElementById('error-container').style.display = 'block';
+                        return;
+                    }
+                    
+                    console.log('Toate foile lipsă au fost încărcate, se combină datele');
+                    // Combinăm datele de la toate foile
+                    combinedData = combineAllSheetsData();
+                    
+                    if (combinedData && combinedData.rows.length > 0) {
+                        console.log(`S-au combinat ${combinedData.rows.length} rânduri de date`);
+                        allData = combinedData;
+                        
+                        // Actualizăm tabelul și statisticile
+                        updateTable(allData, currentPeriod);
+                        updateStats(allData);
+                    } else {
+                        console.error('Nu s-au putut combina datele după încărcarea foilor lipsă!');
+                        document.getElementById('table-body').innerHTML = 
+                            '<tr><td colspan="8" class="loading-message">Nu s-au putut încărca datele pentru toți stupii</td></tr>';
+                        document.getElementById('error-container').style.display = 'block';
+                    }
+                });
+            } else {
+                console.log('Toate foile sunt deja încărcate, se combină datele');
                 // Combinăm datele de la toate foile
                 combinedData = combineAllSheetsData();
                 
-                if (combinedData) {
+                if (combinedData && combinedData.rows.length > 0) {
+                    console.log(`S-au combinat ${combinedData.rows.length} rânduri de date`);
                     allData = combinedData;
                     
                     // Actualizăm tabelul și statisticile
                     updateTable(allData, currentPeriod);
                     updateStats(allData);
+                } else {
+                    console.error('Nu s-au putut combina datele!');
+                    document.getElementById('table-body').innerHTML = 
+                        '<tr><td colspan="8" class="loading-message">Nu s-au putut încărca datele pentru toți stupii</td></tr>';
+                    document.getElementById('error-container').style.display = 'block';
                 }
-            });
-        } else {
-            // Combinăm datele de la toate foile
-            combinedData = combineAllSheetsData();
-            
-            if (combinedData) {
-                allData = combinedData;
-                
-                // Actualizăm tabelul și statisticile
-                updateTable(allData, currentPeriod);
-                updateStats(allData);
             }
-        }
-    } else {
-        // Preluăm date pentru stupul selectat dacă nu avem deja
-        if (!sheetsData[currentSheet]) {
-            console.log(`Preluăm date pentru stupul: ${currentSheet}`);
-            // Arătăm un indicator de încărcare
-            document.getElementById('table-body').innerHTML = 
-                '<tr><td colspan="7" class="loading-message">Se încarcă datele pentru stupul selectat...</td></tr>';
-            
-            // Preluăm date și actualizăm
-            fetchSheetData(currentSheet).then(data => {
-                if (data) {
-                    allData = data;
-                    
+        } else {
+            // Preluăm date pentru stupul selectat dacă nu avem deja
+            if (!sheetsData[currentSheet]) {
+                console.log(`Preluăm date pentru stupul: ${currentSheet}`);
+                // Arătăm un indicator de încărcare
+                document.getElementById('table-body').innerHTML = 
+                    '<tr><td colspan="7" class="loading-message">Se încarcă datele pentru stupul selectat...</td></tr>';
+                
+                // Preluăm date și actualizăm
+                fetchSheetData(currentSheet).then(data => {
+                    if (data && data.rows.length > 0) {
+                        console.log(`S-au preluat ${data.rows.length} rânduri de date pentru stupul ${currentSheet}`);
+                        allData = data;
+                        
+                        // Actualizăm tabelul și statisticile
+                        updateTable(allData, currentPeriod);
+                        updateStats(allData);
+                    } else {
+                        console.error(`Nu s-au putut încărca date pentru stupul ${currentSheet} sau nu există date!`);
+                        document.getElementById('table-body').innerHTML = 
+                            '<tr><td colspan="7" class="loading-message">Nu există date pentru stupul selectat</td></tr>';
+                        document.getElementById('error-container').style.display = 'block';
+                    }
+                }).catch(error => {
+                    console.error(`Eroare la preluarea datelor pentru stupul ${currentSheet}:`, error);
+                    document.getElementById('table-body').innerHTML = 
+                        '<tr><td colspan="7" class="loading-message">Eroare la încărcarea datelor pentru stupul selectat</td></tr>';
+                    document.getElementById('error-container').style.display = 'block';
+                });
+            } else {
+                console.log(`Folosim datele existente pentru stupul: ${currentSheet}`);
+                allData = sheetsData[currentSheet];
+                
+                if (allData && allData.rows.length > 0) {
                     // Actualizăm tabelul și statisticile
                     updateTable(allData, currentPeriod);
                     updateStats(allData);
+                } else {
+                    console.error(`Datele pentru stupul ${currentSheet} există dar sunt goale!`);
+                    document.getElementById('table-body').innerHTML = 
+                        '<tr><td colspan="7" class="loading-message">Nu există date pentru stupul selectat</td></tr>';
+                    document.getElementById('error-container').style.display = 'block';
                 }
-            });
-        } else {
-            console.log(`Folosim datele existente pentru stupul: ${currentSheet}`);
-            allData = sheetsData[currentSheet];
-            
-            // Actualizăm tabelul și statisticile
-            updateTable(allData, currentPeriod);
-            updateStats(allData);
+            }
         }
+    } catch (error) {
+        console.error('Eroare la schimbarea stupului:', error);
+        document.getElementById('table-body').innerHTML = 
+            '<tr><td colspan="8" class="loading-message">Eroare la schimbarea stupului: ' + error.message + '</td></tr>';
+        document.getElementById('error-container').style.display = 'block';
     }
 }
 
@@ -837,62 +971,112 @@ async function initPage() {
     // Inițializăm controalele
     initControls();
     
-    // Preluăm și afișăm datele pentru toți stupii
-    if (currentSheet === 'all') {
-        console.log('Preluăm date pentru toți stupii');
+    try {
+        // Inițial ascundem containerul de eroare
+        document.getElementById('error-container').style.display = 'none';
         
-        // Arătăm un indicator de încărcare
+        // Preluăm și afișăm datele pentru toți stupii
+        if (currentSheet === 'all') {
+            console.log('Preluăm date pentru toți stupii');
+            
+            // Arătăm un indicator de încărcare
+            document.getElementById('table-body').innerHTML = 
+                '<tr><td colspan="8" class="loading-message">Se încarcă datele pentru toți stupii...</td></tr>';
+            
+            // Preluăm date pentru toate foile
+            const allSheets = Object.keys(SHEET_URLS);
+            console.log('Se vor prelua date pentru foile:', allSheets);
+            
+            // Folosim promisiuni pentru a prelua datele în paralel
+            const fetchPromises = [];
+            for (const sheet of allSheets) {
+                console.log(`Inițiere preluare date pentru foaia: ${sheet}`);
+                fetchPromises.push(fetchSheetData(sheet).catch(err => {
+                    console.error(`Eroare la preluarea datelor pentru foaia ${sheet}:`, err);
+                    return null;
+                }));
+            }
+            
+            // Așteptăm ca toate promisiunile să fie rezolvate
+            const results = await Promise.all(fetchPromises);
+            console.log('Rezultate preluare date:', results.map(r => r ? 'succes' : 'eroare'));
+            
+            // Verificăm dacă toate preluările au eșuat
+            const allFailed = results.every(result => result === null);
+            if (allFailed) {
+                console.error('Toate preluările de date au eșuat!');
+                document.getElementById('error-container').style.display = 'block';
+                return;
+            }
+            
+            // Verificăm dacă toate foile au fost încărcate
+            const missingSheets = allSheets.filter(sheet => !sheetsData[sheet]);
+            if (missingSheets.length > 0) {
+                console.warn('Nu s-au putut încărca date pentru foile:', missingSheets);
+            }
+            
+            // Combinăm datele de la toate foile
+            console.log('Încercare combinare date de la toate foile');
+            combinedData = combineAllSheetsData();
+            
+            if (combinedData && combinedData.rows.length > 0) {
+                console.log(`S-au combinat ${combinedData.rows.length} rânduri de date`);
+                allData = combinedData;
+                
+                // Actualizăm tabelul și statisticile
+                updateTable(allData, currentPeriod);
+                updateStats(allData);
+                
+                // Asigurăm-ne că statisticile perioadei sunt actualizate corect
+                const filteredData = filterDataByPeriod(allData, currentPeriod);
+                const stats = calculatePeriodStats(filteredData);
+                console.log('Statistici inițiale calculate pentru perioada', currentPeriod, ':', stats);
+                
+                // Actualizăm manual statisticile
+                document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
+                document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
+                document.getElementById('period-count').textContent = stats.count + ' măsurători';
+            } else {
+                console.error('Nu s-au putut combina datele de la toate foile!');
+                document.getElementById('table-body').innerHTML = 
+                    '<tr><td colspan="8" class="loading-message">Nu s-au putut încărca datele pentru toți stupii</td></tr>';
+                document.getElementById('error-container').style.display = 'block';
+            }
+        } else {
+            // Preluăm date doar pentru stupul selectat
+            console.log(`Preluare date pentru stupul ${currentSheet}`);
+            allData = await fetchSheetData(currentSheet);
+            
+            if (allData && allData.rows.length > 0) {
+                console.log(`S-au preluat ${allData.rows.length} rânduri de date pentru stupul ${currentSheet}`);
+                
+                // Actualizăm tabelul pentru perioada curentă
+                updateTable(allData, currentPeriod);
+                
+                // Actualizăm statisticile
+                updateStats(allData);
+                
+                // Asigurăm-ne că statisticile perioadei sunt actualizate corect
+                const filteredData = filterDataByPeriod(allData, currentPeriod);
+                const stats = calculatePeriodStats(filteredData);
+                console.log('Statistici inițiale calculate pentru perioada', currentPeriod, ':', stats);
+                
+                // Actualizăm manual statisticile
+                document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
+                document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
+                document.getElementById('period-count').textContent = stats.count + ' măsurători';
+            } else {
+                console.error(`Nu s-au putut încărca date pentru stupul ${currentSheet}!`);
+                document.getElementById('table-body').innerHTML = 
+                    '<tr><td colspan="7" class="loading-message">Nu s-au putut încărca datele pentru stupul selectat</td></tr>';
+                document.getElementById('error-container').style.display = 'block';
+            }
+        }
+    } catch (error) {
+        console.error('Eroare la inițializarea paginii:', error);
         document.getElementById('table-body').innerHTML = 
-            '<tr><td colspan="8" class="loading-message">Se încarcă datele pentru toți stupii...</td></tr>';
-        
-        // Preluăm date pentru toate foile
-        const allSheets = Object.keys(SHEET_URLS);
-        const fetchPromises = allSheets.map(sheet => fetchSheetData(sheet));
-        
-        await Promise.all(fetchPromises);
-        
-        // Combinăm datele de la toate foile
-        combinedData = combineAllSheetsData();
-        
-        if (combinedData) {
-            allData = combinedData;
-            
-            // Actualizăm tabelul și statisticile
-            updateTable(allData, currentPeriod);
-            updateStats(allData);
-            
-            // Asigurăm-ne că statisticile perioadei sunt actualizate corect
-            const filteredData = filterDataByPeriod(allData, currentPeriod);
-            const stats = calculatePeriodStats(filteredData);
-            console.log('Statistici inițiale calculate pentru perioada', currentPeriod, ':', stats);
-            
-            // Actualizăm manual statisticile
-            document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
-            document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
-            document.getElementById('period-count').textContent = stats.count + ' măsurători';
-        }
-    } else {
-        // Preluăm date doar pentru stupul selectat
-        allData = await fetchSheetData(currentSheet);
-        if (allData) {
-            console.log('Date preluate cu succes, actualizăm pentru perioada:', currentPeriod);
-            
-            // Actualizăm tabelul pentru perioada curentă
-            updateTable(allData, currentPeriod);
-            
-            // Actualizăm statisticile
-            updateStats(allData);
-            
-            // Asigurăm-ne că statisticile perioadei sunt actualizate corect
-            const filteredData = filterDataByPeriod(allData, currentPeriod);
-            const stats = calculatePeriodStats(filteredData);
-            console.log('Statistici inițiale calculate pentru perioada', currentPeriod, ':', stats);
-            
-            // Actualizăm manual statisticile
-            document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
-            document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
-            document.getElementById('period-count').textContent = stats.count + ' măsurători';
-        }
+            '<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: ' + error.message + '</td></tr>';
+        document.getElementById('error-container').style.display = 'block';
     }
 }
 

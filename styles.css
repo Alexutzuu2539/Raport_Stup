@@ -519,4 +519,28 @@ section {
     .current-datetime #current-time {
         font-size: 1rem;
     }
+}
+
+/* Stiluri pentru mesajul de eroare */
+.error-message {
+    background-color: #ffebee;
+    border: 1px solid #f44336;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 20px 0;
+    color: #d32f2f;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.error-message p {
+    margin: 5px 0;
+}
+
+.error-message ul {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.error-message li {
+    margin-bottom: 5px;
 } 
