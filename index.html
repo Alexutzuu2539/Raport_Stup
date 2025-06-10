@@ -7,15 +7,15 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Monitorizare Stupină</title>
-    <link rel="stylesheet" href="styles.css?v=1.3">
+    <link rel="stylesheet" href="styles.css?v=1.4">
     <script>
         // Forță reload cu parametru de versiune pentru a evita cache-ul
         (function() {
             const currentUrl = window.location.href;
-            if (currentUrl.indexOf('v=1.3') === -1) {
+            if (currentUrl.indexOf('v=1.4') === -1) {
                 const newUrl = currentUrl.indexOf('?') === -1 
-                    ? currentUrl + '?v=1.3' 
-                    : currentUrl + '&v=1.3';
+                    ? currentUrl + '?v=1.4' 
+                    : currentUrl + '&v=1.4';
                 window.location.href = newUrl;
             }
         })();
@@ -24,7 +24,7 @@
 <body>
     <header>
         <h1>Sistem de Monitorizare a Stupilor</h1>
-        <p>, automatizat de HexCode</p>
+        <p>Automatizat de HexCode</p>
     </header>
     
     <main>
@@ -65,8 +65,10 @@
                     <label for="period-select">Perioada:</label>
                     <select id="period-select" onchange="changePeriod()">
                         <option value="all">Toate datele</option>
+                        <option value="today">Astăzi</option>
                         <option value="week">Ultima săptămână</option>
                         <option value="month">Ultima lună</option>
+                        <option value="year">Anul curent</option>
                     </select>
                 </div>
                 
@@ -78,6 +80,10 @@
                     <div class="summary-item">
                         <span>Temperatura medie:</span>
                         <span id="period-temp">Se calculează...</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>Număr măsurători:</span>
+                        <span id="period-count">Se calculează...</span>
                     </div>
                 </div>
             </div>
@@ -116,6 +122,6 @@
         <p>&copy; <span id="current-year"></span> Sistem de Monitorizare Stupină, automatizat de HexCode</p>
     </footer>
     
-    <script src="script.js?v=1.3"></script>
+    <script src="script.js?v=1.4"></script>
 </body>
 </html> 

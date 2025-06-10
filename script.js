@@ -88,6 +88,13 @@ async function fetchSheetData() {
     }
 }
 
+// Verifică dacă două date sunt în aceeași zi
+function isSameDay(d1, d2) {
+    return d1.getFullYear() === d2.getFullYear() &&
+           d1.getMonth() === d2.getMonth() &&
+           d1.getDate() === d2.getDate();
+}
+
 // Filtrare date în funcție de perioada selectată
 function filterDataByPeriod(data, period) {
     if (!data || period === 'all') {
@@ -97,20 +104,33 @@ function filterDataByPeriod(data, period) {
     const now = new Date();
     let cutoffDate;
     
-    if (period === 'week') {
-        // 7 zile în urmă
-        cutoffDate = new Date(now);
-        cutoffDate.setDate(now.getDate() - 7);
-    } else if (period === 'month') {
-        // 30 zile în urmă
-        cutoffDate = new Date(now);
-        cutoffDate.setDate(now.getDate() - 30);
+    switch(period) {
+        case 'today':
+            // Doar măsurătorile de azi
+            return data.rows.filter(row => row.dateObj && isSameDay(row.dateObj, now));
+            
+        case 'week':
+            // 7 zile în urmă
+            cutoffDate = new Date(now);
+            cutoffDate.setDate(now.getDate() - 7);
+            break;
+            
+        case 'month':
+            // 30 zile în urmă
+            cutoffDate = new Date(now);
+            cutoffDate.setDate(now.getDate() - 30);
+            break;
+            
+        case 'year':
+            // Începutul anului curent
+            cutoffDate = new Date(now.getFullYear(), 0, 1);
+            break;
+            
+        default:
+            return data.rows;
     }
     
-    return data.rows.filter(row => {
-        // Folosim proprietatea dateObj adăugată în fetchSheetData
-        return row.dateObj && row.dateObj >= cutoffDate;
-    });
+    return data.rows.filter(row => row.dateObj && row.dateObj >= cutoffDate);
 }
 
 // Calculează statistici pentru perioada selectată
@@ -118,7 +138,8 @@ function calculatePeriodStats(filteredData) {
     if (!filteredData || filteredData.length === 0) {
         return {
             totalHarvest: 0,
-            avgTemperature: 0
+            avgTemperature: 0,
+            count: 0
         };
     }
     
@@ -137,8 +158,22 @@ function calculatePeriodStats(filteredData) {
     
     return {
         totalHarvest: totalHarvest.toFixed(2),
-        avgTemperature: (totalTemp / filteredData.length).toFixed(1)
+        avgTemperature: (totalTemp / filteredData.length).toFixed(1),
+        count: filteredData.length
     };
+}
+
+// Formatează numele perioadei pentru afișare
+function getPeriodName(period) {
+    const periodNames = {
+        'all': 'toate datele',
+        'today': 'astăzi',
+        'week': 'ultima săptămână',
+        'month': 'ultima lună',
+        'year': 'anul curent'
+    };
+    
+    return periodNames[period] || 'perioada selectată';
 }
 
 // Funcția pentru a actualiza tabelul HTML
@@ -219,8 +254,11 @@ function updateTable(data, period = 'all') {
     
     // Actualizare statistici pentru perioada selectată
     const stats = calculatePeriodStats(filteredData);
+    const periodName = getPeriodName(period);
+    
     document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
     document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
+    document.getElementById('period-count').textContent = stats.count + ' măsurători';
 }
 
 // Funcția pentru a actualiza statisticile din dashboard
