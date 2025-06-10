@@ -1,5 +1,13 @@
 // Configurare pentru conectarea la Google Sheets
-const PUBLISHED_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?output=csv';
+// URL-uri pentru fiecare foaie publicată
+const SHEET_URLS = {
+    'foaie1': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?output=csv',
+    'foaie2': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?gid=123456789&single=true&output=csv', // Trebuie actualizat cu ID-ul real al foii
+    'foaie3': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?gid=987654321&single=true&output=csv'  // Trebuie actualizat cu ID-ul real al foii
+};
+
+// URL-ul implicit (prima foaie)
+const DEFAULT_SHEET_URL = SHEET_URLS['foaie1'];
 
 // Variabile globale pentru a stoca datele și perioada curentă
 let allData = null;
@@ -7,10 +15,12 @@ let currentPeriod = 'today';
 let customStartDate = null;
 let customEndDate = null;
 
-// Variabile pentru gestionarea mai multor stupi
+// Variabile pentru gestionarea mai multor stupi și foi
 let hiveData = {};  // Obiect pentru a stoca datele separate pentru fiecare stup
 let currentHive = 'all';  // 'all' = toți stupii, sau ID-ul unui stup specific
 let availableHives = [];  // Lista ID-urilor stupilor disponibili
+let currentSheet = 'foaie1'; // Foaia curentă selectată
+let sheetsData = {}; // Stocăm datele pentru fiecare foaie
 
 // Variabile pentru paginare
 let currentPage = 1;
@@ -72,13 +82,18 @@ function cleanupOldChartElements() {
 }
 
 // Funcția pentru a prelua datele din Google Sheets (format CSV)
-async function fetchSheetData() {
+async function fetchSheetData(sheetName = currentSheet) {
     try {
-        const response = await fetch(PUBLISHED_URL);
+        if (!SHEET_URLS[sheetName]) {
+            console.error(`Foaia "${sheetName}" nu există.`);
+            return null;
+        }
+        
+        const response = await fetch(SHEET_URLS[sheetName]);
         const text = await response.text();
         
         // Debug - afișăm răspunsul brut
-        console.log('Răspuns CSV brut:', text.substring(0, 500) + '...');
+        console.log(`Răspuns CSV brut pentru foaia ${sheetName}:`, text.substring(0, 500) + '...');
         
         // Parsare CSV
         const rows = text.split('\n').map(row => {
@@ -112,9 +127,9 @@ async function fetchSheetData() {
         
         // Debug - afișăm primul și ultimul rând
         if (dataRows.length > 0) {
-            console.log('Anteturi:', headers);
-            console.log('Primul rând:', dataRows[0]);
-            console.log('Ultimul rând:', dataRows[dataRows.length - 1]);
+            console.log(`Anteturi pentru foaia ${sheetName}:`, headers);
+            console.log(`Primul rând pentru foaia ${sheetName}:`, dataRows[0]);
+            console.log(`Ultimul rând pentru foaia ${sheetName}:`, dataRows[dataRows.length - 1]);
         }
         
         // Verifică dacă există coloana pentru ID-ul stupului
@@ -163,9 +178,9 @@ async function fetchSheetData() {
                 hiveData[hiveId].push(row);
             });
             
-            console.log('Stupi disponibili:', availableHives);
+            console.log(`Stupi disponibili în foaia ${sheetName}:`, availableHives);
         } else {
-            console.log('Nu a fost găsită coloana pentru ID-ul stupului. Se folosește un singur stup implicit.');
+            console.log(`Nu a fost găsită coloana pentru ID-ul stupului în foaia ${sheetName}. Se folosește un singur stup implicit.`);
             // Dacă nu există coloana pentru stup, folosim un singur stup implicit
             hiveData = {
                 all: processedRows,
@@ -174,13 +189,31 @@ async function fetchSheetData() {
             availableHives = ['all', 'default'];
         }
         
-        return { headers, rows: processedRows };
+        // Stocăm datele pentru această foaie
+        sheetsData[sheetName] = { headers, rows: processedRows, hiveData };
+        
+        return sheetsData[sheetName];
     } catch (error) {
-        console.error('Eroare la preluarea datelor:', error);
+        console.error(`Eroare la preluarea datelor pentru foaia ${sheetName}:`, error);
         document.getElementById('table-body').innerHTML = 
             `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: ${error.message}</td></tr>`;
         return null;
     }
+}
+
+// Funcția pentru a prelua date din toate foile disponibile
+async function fetchAllSheets() {
+    const results = {};
+    const sheetNames = Object.keys(SHEET_URLS);
+    
+    console.log('Preluăm date din toate foile:', sheetNames);
+    
+    for (const sheetName of sheetNames) {
+        console.log(`Preluăm date din foaia: ${sheetName}`);
+        results[sheetName] = await fetchSheetData(sheetName);
+    }
+    
+    return results;
 }
 
 // Verifică dacă două date sunt în aceeași zi
@@ -661,6 +694,54 @@ function applyCustomDateRange() {
     }
 }
 
+// Funcția pentru a schimba foaia selectată
+function changeSheet() {
+    const sheetSelect = document.getElementById('sheet-select');
+    const newSheet = sheetSelect.value;
+    
+    console.log('Schimbare foaie:', currentSheet, '->', newSheet);
+    
+    if (newSheet === currentSheet) {
+        console.log('Aceeași foaie este deja selectată.');
+        return;
+    }
+    
+    currentSheet = newSheet;
+    
+    // Resetăm selectorul de stup la 'all'
+    currentHive = 'all';
+    
+    // Preluăm date pentru noua foaie dacă nu avem deja
+    if (!sheetsData[currentSheet]) {
+        console.log(`Preluăm date pentru foaia: ${currentSheet}`);
+        // Arătăm un indicator de încărcare
+        document.getElementById('table-body').innerHTML = 
+            '<tr><td colspan="8" class="loading-message">Se încarcă datele pentru foaia selectată...</td></tr>';
+        
+        // Preluăm date și actualizăm
+        fetchSheetData(currentSheet).then(data => {
+            if (data) {
+                // Actualizăm selectorul de stupi
+                populateHiveSelector();
+                
+                // Actualizăm tabelul și statisticile
+                updateTable(data, currentPeriod, currentHive);
+                updateStats(data, currentHive);
+            }
+        });
+    } else {
+        console.log(`Folosim datele existente pentru foaia: ${currentSheet}`);
+        allData = sheetsData[currentSheet];
+        
+        // Actualizăm selectorul de stupi
+        populateHiveSelector();
+        
+        // Actualizăm tabelul și statisticile
+        updateTable(allData, currentPeriod, currentHive);
+        updateStats(allData, currentHive);
+    }
+}
+
 // Funcția pentru a schimba stupul selectat
 function changeHive() {
     const hiveSelect = document.getElementById('hive-select');
@@ -675,8 +756,19 @@ function changeHive() {
         updateTable(allData, currentPeriod);
         
         // Actualizăm și statisticile generale
-        updateStats(allData, currentHive);
+        updateStats(allData);
     }
+}
+
+// Funcția pentru a popula selectorul de foi
+function populateSheetSelector() {
+    const sheetSelect = document.getElementById('sheet-select');
+    
+    // Verificăm dacă selectorul există
+    if (!sheetSelect) return;
+    
+    // Setăm foaia curentă
+    sheetSelect.value = currentSheet;
 }
 
 // Funcția pentru a popula selectorul de stupi
@@ -693,14 +785,16 @@ function populateHiveSelector() {
     hiveSelect.appendChild(allOption);
     
     // Adăugăm opțiuni pentru fiecare stup disponibil (exceptând 'all' care este deja adăugat)
-    availableHives.forEach(hive => {
-        if (hive !== 'all') {
-            const option = document.createElement('option');
-            option.value = hive;
-            option.textContent = hive === 'default' ? 'Stup Principal' : `Stup ${hive}`;
-            hiveSelect.appendChild(option);
-        }
-    });
+    if (availableHives.length > 0) {
+        availableHives.forEach(hive => {
+            if (hive !== 'all') {
+                const option = document.createElement('option');
+                option.value = hive;
+                option.textContent = hive === 'default' ? 'Stup Principal' : `Stup ${hive}`;
+                hiveSelect.appendChild(option);
+            }
+        });
+    }
     
     // Setăm stupul curent
     hiveSelect.value = currentHive;
@@ -713,7 +807,8 @@ function initControls() {
     document.getElementById('start-date').max = today;
     document.getElementById('end-date').max = today;
     
-    // Populăm selectorul de stupi
+    // Inițializăm selectoarele
+    populateSheetSelector();
     populateHiveSelector();
     
     // Setăm valoarea selectată a selectorului de perioadă
@@ -741,8 +836,8 @@ async function initPage() {
     // Inițializăm controalele
     initControls();
     
-    // Preluăm și afișăm datele
-    allData = await fetchSheetData();
+    // Preluăm și afișăm datele pentru foaia curentă
+    allData = await fetchSheetData(currentSheet);
     if (allData) {
         console.log('Date preluate cu succes, actualizăm pentru perioada:', currentPeriod);
         

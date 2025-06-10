@@ -70,6 +70,15 @@
         <section class="data-table">
             <h2>Toate măsurătorile</h2>
             <div class="filter-controls">
+                <div class="sheet-selector">
+                    <label for="sheet-select">Foaie:</label>
+                    <select id="sheet-select" onchange="changeSheet()">
+                        <option value="foaie1" selected>Foaie 1</option>
+                        <option value="foaie2">Foaie 2</option>
+                        <option value="foaie3">Foaie 3</option>
+                    </select>
+                </div>
+                
                 <div class="hive-selector">
                     <label for="hive-select">Stup:</label>
                     <select id="hive-select" onchange="changeHive()">

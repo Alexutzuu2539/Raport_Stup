@@ -275,6 +275,7 @@ section {
     align-items: flex-start;
 }
 
+.sheet-selector,
 .hive-selector,
 .period-selector {
     display: flex;
@@ -282,12 +283,14 @@ section {
     gap: 8px;
 }
 
+.sheet-selector label,
 .hive-selector label,
 .period-selector label {
     font-weight: bold;
     white-space: nowrap;
 }
 
+.sheet-selector select,
 .hive-selector select,
 .period-selector select {
     padding: 8px 12px;
