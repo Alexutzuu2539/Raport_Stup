@@ -7,6 +7,30 @@ let currentPeriod = 'all';
 let customStartDate = null;
 let customEndDate = null;
 
+// Variabile pentru paginare
+let currentPage = 1;
+let itemsPerPage = 15;
+let filteredData = [];
+
+// Funcție pentru actualizarea datei și orei curente
+function updateCurrentDateTime() {
+    const now = new Date();
+    
+    // Formatare dată în stil românesc
+    const dateStr = formatDateRO(now);
+    
+    // Formatare oră
+    const timeStr = now.toLocaleTimeString('ro-RO', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+    
+    // Actualizare elemente HTML
+    document.getElementById('current-date').textContent = dateStr;
+    document.getElementById('current-time').textContent = timeStr;
+}
+
 // Funcție pentru a elimina posibile elemente de grafic care ar putea fi în cache
 function cleanupOldChartElements() {
     // Verificăm dacă există elemente de grafic din versiunea anterioară
@@ -209,26 +233,59 @@ function formatDateRO(date) {
     return `${day}.${month}.${year}`;
 }
 
+// Calculează numărul total de pagini
+function getTotalPages() {
+    return Math.ceil(filteredData.length / itemsPerPage);
+}
+
+// Actualizează controalele de paginare
+function updatePaginationControls() {
+    const totalPages = getTotalPages();
+    
+    document.getElementById('pagination-text').textContent = `Pagina ${currentPage} din ${totalPages}`;
+    
+    // Activăm/dezactivăm butoanele de navigare
+    document.getElementById('first-page').disabled = currentPage === 1;
+    document.getElementById('prev-page').disabled = currentPage === 1;
+    document.getElementById('next-page').disabled = currentPage === totalPages;
+    document.getElementById('last-page').disabled = currentPage === totalPages;
+}
+
 // Funcția pentru a actualiza tabelul HTML
 function updateTable(data, period = 'all') {
     if (!data) return;
     
+    // Resetăm pagina curentă la 1 când se schimbă filtrul
+    currentPage = 1;
+    
     // Filtrare date în funcție de perioada selectată
-    const filteredData = filterDataByPeriod(data, period);
+    filteredData = filterDataByPeriod(data, period);
     
     const tableBody = document.getElementById('table-body');
     tableBody.innerHTML = '';
     
     if (filteredData.length === 0) {
         tableBody.innerHTML = '<tr><td colspan="7" class="loading-message">Nu există date pentru perioada selectată</td></tr>';
+        
+        // Actualizăm controalele de paginare
+        document.getElementById('pagination-text').textContent = 'Pagina 0 din 0';
+        document.getElementById('first-page').disabled = true;
+        document.getElementById('prev-page').disabled = true;
+        document.getElementById('next-page').disabled = true;
+        document.getElementById('last-page').disabled = true;
+        
         return;
     }
     
     // Adăugăm rândurile în ordine inversă (cele mai recente primele)
     const reversedRows = [...filteredData].reverse();
     
-    // Limităm la maxim 50 de rânduri pentru performanță
-    const rowsToShow = reversedRows.slice(0, 50);
+    // Calculăm indexul de start și stop pentru pagina curentă
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, reversedRows.length);
+    
+    // Obținem datele pentru pagina curentă
+    const rowsToShow = reversedRows.slice(startIndex, endIndex);
     
     rowsToShow.forEach(row => {
         const tr = document.createElement('tr');
@@ -293,6 +350,59 @@ function updateTable(data, period = 'all') {
     document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';
     document.getElementById('period-temp').textContent = stats.avgTemperature + ' °C';
     document.getElementById('period-count').textContent = stats.count + ' măsurători';
+    
+    // Actualizăm controalele de paginare
+    updatePaginationControls();
+}
+
+// Funcțiile de navigare între pagini
+function goToFirstPage() {
+    currentPage = 1;
+    updateTable(allData, currentPeriod);
+}
+
+function goToPrevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        updateTable(allData, currentPeriod);
+    }
+}
+
+function goToNextPage() {
+    if (currentPage < getTotalPages()) {
+        currentPage++;
+        updateTable(allData, currentPeriod);
+    }
+}
+
+function goToLastPage() {
+    currentPage = getTotalPages();
+    updateTable(allData, currentPeriod);
+}
+
+// Funcția pentru a schimba numărul de elemente pe pagină
+function changeItemsPerPage() {
+    const select = document.getElementById('items-per-page');
+    itemsPerPage = parseInt(select.value);
+    
+    // Recalculăm pagina curentă pentru a menține aceeași poziție aproximativă
+    const totalItems = filteredData.length;
+    const firstItemIndex = (currentPage - 1) * itemsPerPage;
+    
+    // Recalculăm pagina pentru a menține primul element vizibil
+    currentPage = Math.floor(firstItemIndex / itemsPerPage) + 1;
+    
+    // Ne asigurăm că pagina curentă este validă
+    if (currentPage < 1) {
+        currentPage = 1;
+    }
+    
+    const totalPages = getTotalPages();
+    if (currentPage > totalPages) {
+        currentPage = totalPages > 0 ? totalPages : 1;
+    }
+    
+    updateTable(allData, currentPeriod);
 }
 
 // Funcția pentru a actualiza statisticile din dashboard
@@ -384,6 +494,13 @@ function initControls() {
     
     // Inițializăm evenimentul de schimbare a perioadei
     changePeriod();
+    
+    // Setăm valoarea implicită pentru numărul de elemente pe pagină
+    document.getElementById('items-per-page').value = itemsPerPage.toString();
+    
+    // Inițializăm și începem actualizarea datei și orei
+    updateCurrentDateTime();
+    setInterval(updateCurrentDateTime, 1000);
 }
 
 // Inițializarea paginii
