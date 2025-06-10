@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitorizare Stupină</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 </head>
 <body>
     <header>
@@ -45,29 +43,6 @@
             </div>
         </section>
         
-        <section class="charts">
-            <div class="chart-row">
-                <div class="chart-container">
-                    <h3>Evoluția greutății stupului</h3>
-                    <canvas id="weight-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Evoluția temperaturii</h3>
-                    <canvas id="temp-chart"></canvas>
-                </div>
-            </div>
-            <div class="chart-row">
-                <div class="chart-container">
-                    <h3>Evoluția recoltei</h3>
-                    <canvas id="harvest-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Starea bateriei</h3>
-                    <canvas id="battery-chart"></canvas>
-                </div>
-            </div>
-        </section>
-        
         <section class="data-table">
             <h2>Toate măsurătorile</h2>
             <div class="table-responsive">
@@ -95,7 +70,7 @@
     
     <footer>
         <p>&copy; <span id="current-year"></span> Sistem de Monitorizare Stupină</p>
-        <p>Date actualizate automat din <a href="https://docs.google.com/spreadsheets" target="_blank">Google Sheets</a></p>
+        <p>Date actualizate automat din <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pubhtml" target="_blank">Google Sheets</a></p>
     </footer>
     
     <script src="script.js"></script>
