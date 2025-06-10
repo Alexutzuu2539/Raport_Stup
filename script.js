@@ -7,6 +7,11 @@ let currentPeriod = 'today';
 let customStartDate = null;
 let customEndDate = null;
 
+// Variabile pentru gestionarea mai multor stupi
+let hiveData = {};  // Obiect pentru a stoca datele separate pentru fiecare stup
+let currentHive = 'all';  // 'all' = toți stupii, sau ID-ul unui stup specific
+let availableHives = [];  // Lista ID-urilor stupilor disponibili
+
 // Variabile pentru paginare
 let currentPage = 1;
 let itemsPerPage = 15;
@@ -112,7 +117,12 @@ async function fetchSheetData() {
             console.log('Ultimul rând:', dataRows[dataRows.length - 1]);
         }
         
-        // Procesare date pentru a adăuga obiecte Date JavaScript
+        // Verifică dacă există coloana pentru ID-ul stupului
+        // Presupunem că este ultima coloană (după Ploaie)
+        const hiveIdColumnIndex = 7; // Coloana 8 (index 7) - după data, greutate, temp, recoltă zilnică, recoltă totală, baterie, ploaie
+        const hasHiveIdColumn = headers.length > hiveIdColumnIndex && headers[hiveIdColumnIndex] === 'Stup ID';
+        
+        // Procesare date pentru a adăuga obiecte Date JavaScript și organizare pe stupi
         const processedRows = dataRows.map(row => {
             const processedRow = [...row];  // copiem rândul
             try {
@@ -129,11 +139,46 @@ async function fetchSheetData() {
         // Sortăm datele după dată (cele mai vechi primele)
         processedRows.sort((a, b) => a.dateObj - b.dateObj);
         
+        // Organizăm datele pe stupi
+        hiveData = { all: processedRows }; // 'all' conține toate datele
+        availableHives = ['all']; // 'all' este întotdeauna disponibil
+        
+        if (hasHiveIdColumn) {
+            // Resetăm listele de stupi disponibili
+            availableHives = ['all']; // 'all' rămâne întotdeauna prima opțiune
+            
+            // Parcurgem datele și le organizăm pe stupi
+            processedRows.forEach(row => {
+                const hiveId = row[hiveIdColumnIndex] || 'default';
+                
+                // Creăm o listă pentru acest stup dacă nu există deja
+                if (!hiveData[hiveId]) {
+                    hiveData[hiveId] = [];
+                    if (!availableHives.includes(hiveId)) {
+                        availableHives.push(hiveId);
+                    }
+                }
+                
+                // Adăugăm rândul la datele stupului
+                hiveData[hiveId].push(row);
+            });
+            
+            console.log('Stupi disponibili:', availableHives);
+        } else {
+            console.log('Nu a fost găsită coloana pentru ID-ul stupului. Se folosește un singur stup implicit.');
+            // Dacă nu există coloana pentru stup, folosim un singur stup implicit
+            hiveData = {
+                all: processedRows,
+                default: processedRows
+            };
+            availableHives = ['all', 'default'];
+        }
+        
         return { headers, rows: processedRows };
     } catch (error) {
         console.error('Eroare la preluarea datelor:', error);
         document.getElementById('table-body').innerHTML = 
-            `<tr><td colspan="7" class="loading-message">Eroare la încărcarea datelor: ${error.message}</td></tr>`;
+            `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: ${error.message}</td></tr>`;
         return null;
     }
 }
@@ -145,10 +190,26 @@ function isSameDay(d1, d2) {
            d1.getDate() === d2.getDate();
 }
 
-// Filtrare date în funcție de perioada selectată
-function filterDataByPeriod(data, period) {
+// Filtrare date în funcție de perioada selectată și stupul selectat
+function filterDataByPeriod(data, period, hive = currentHive) {
+    // Obținem datele pentru stupul selectat
+    let rowsToFilter = [];
+    
+    if (hive === 'all') {
+        // Folosim toate datele
+        rowsToFilter = data.rows;
+    } else if (hiveData[hive]) {
+        // Folosim doar datele pentru stupul selectat
+        rowsToFilter = hiveData[hive];
+    } else {
+        // Dacă stupul nu există, folosim toate datele
+        console.warn(`Stupul ${hive} nu există. Se folosesc toate datele.`);
+        rowsToFilter = data.rows;
+    }
+    
+    // Dacă perioada este 'all', returnăm toate datele pentru stupul selectat
     if (!data || period === 'all') {
-        return data.rows;
+        return rowsToFilter;
     }
     
     const now = new Date();
@@ -157,7 +218,7 @@ function filterDataByPeriod(data, period) {
     switch(period) {
         case 'today':
             // Doar măsurătorile de azi
-            return data.rows.filter(row => row.dateObj && isSameDay(row.dateObj, now));
+            return rowsToFilter.filter(row => row.dateObj && isSameDay(row.dateObj, now));
             
         case 'week':
             // 7 zile în urmă
@@ -184,19 +245,19 @@ function filterDataByPeriod(data, period) {
                 const endDate = new Date(customEndDate);
                 endDate.setHours(23, 59, 59, 999);
                 
-                return data.rows.filter(row => {
+                return rowsToFilter.filter(row => {
                     return row.dateObj && row.dateObj >= startDate && row.dateObj <= endDate;
                 });
             } else {
                 // Dacă nu avem intervale definite, returnăm toate datele
-                return data.rows;
+                return rowsToFilter;
             }
             
         default:
-            return data.rows;
+            return rowsToFilter;
     }
     
-    return data.rows.filter(row => row.dateObj && row.dateObj >= cutoffDate);
+    return rowsToFilter.filter(row => row.dateObj && row.dateObj >= cutoffDate);
 }
 
 // Calculează statistici pentru perioada selectată
@@ -274,20 +335,20 @@ function updatePaginationControls() {
 }
 
 // Funcția pentru a actualiza tabelul HTML
-function updateTable(data, period = 'all') {
+function updateTable(data, period = 'all', hive = currentHive) {
     if (!data) return;
     
     // Resetăm pagina curentă la 1 când se schimbă filtrul
     currentPage = 1;
     
-    // Filtrare date în funcție de perioada selectată
-    filteredData = filterDataByPeriod(data, period);
+    // Filtrare date în funcție de perioada selectată și stupul selectat
+    filteredData = filterDataByPeriod(data, period, hive);
     
     const tableBody = document.getElementById('table-body');
     tableBody.innerHTML = '';
     
     if (filteredData.length === 0) {
-        tableBody.innerHTML = '<tr><td colspan="7" class="loading-message">Nu există date pentru perioada selectată</td></tr>';
+        tableBody.innerHTML = '<tr><td colspan="8" class="loading-message">Nu există date pentru perioada selectată</td></tr>';
         
         // Actualizăm controalele de paginare
         document.getElementById('pagination-text').textContent = 'Pagina 0 din 0';
@@ -308,6 +369,9 @@ function updateTable(data, period = 'all') {
     
     // Obținem datele pentru pagina curentă
     const rowsToShow = reversedRows.slice(startIndex, endIndex);
+    
+    // Verifică dacă avem coloană pentru ID-ul stupului
+    const hiveIdColumnIndex = 7; // Presupunem că este coloana 8 (index 7)
     
     rowsToShow.forEach(row => {
         const tr = document.createElement('tr');
@@ -361,6 +425,14 @@ function updateTable(data, period = 'all') {
             rainCell.style.color = 'blue';
         }
         tr.appendChild(rainCell);
+        
+        // ID Stup (dacă există)
+        if (row.length > hiveIdColumnIndex) {
+            const hiveCell = document.createElement('td');
+            const hiveId = row[hiveIdColumnIndex] || 'default';
+            hiveCell.textContent = hiveId;
+            tr.appendChild(hiveCell);
+        }
         
         tableBody.appendChild(tr);
     });
@@ -428,11 +500,38 @@ function changeItemsPerPage() {
 }
 
 // Funcția pentru a actualiza statisticile din dashboard
-function updateStats(data) {
+function updateStats(data, hive = currentHive) {
     if (!data || data.rows.length === 0) return;
     
+    // Obține datele pentru stupul selectat
+    let stupData;
+    
+    if (hive === 'all') {
+        // Folosim toate datele
+        stupData = data.rows;
+    } else if (hiveData[hive]) {
+        // Folosim doar datele pentru stupul selectat
+        stupData = hiveData[hive];
+    } else {
+        // Dacă stupul nu există, folosim toate datele
+        console.warn(`Stupul ${hive} nu există. Se folosesc toate datele pentru statistici.`);
+        stupData = data.rows;
+    }
+    
+    // Verificăm dacă avem date
+    if (stupData.length === 0) {
+        document.getElementById('last-update').textContent = 'Nu există date';
+        document.getElementById('current-weight').textContent = '0.00 kg';
+        document.getElementById('current-temp').textContent = '0.0 °C';
+        document.getElementById('daily-harvest').textContent = '0.00 kg';
+        document.getElementById('total-harvest').textContent = '0.00 kg';
+        document.getElementById('battery-level').textContent = '0.0 V';
+        document.getElementById('rain-status').textContent = 'Nu';
+        return;
+    }
+    
     // Ultima înregistrare (cea mai recentă)
-    const lastRow = data.rows[data.rows.length - 1];
+    const lastRow = stupData[stupData.length - 1];
     
     // Formatează data
     let lastDate = lastRow[0];
@@ -473,6 +572,16 @@ function updateStats(data) {
     
     // Ploaie
     document.getElementById('rain-status').textContent = lastRow[6];
+    
+    // Actualizăm titlul pentru a indica stupul selectat
+    const dashboardTitle = document.querySelector('.dashboard h2');
+    if (dashboardTitle) {
+        if (hive === 'all') {
+            dashboardTitle.textContent = 'Tablou de Bord - Toți Stupii';
+        } else {
+            dashboardTitle.textContent = `Tablou de Bord - ${hive === 'default' ? 'Stup Principal' : 'Stup ' + hive}`;
+        }
+    }
 }
 
 // Funcția pentru a schimba perioada
@@ -552,12 +661,60 @@ function applyCustomDateRange() {
     }
 }
 
+// Funcția pentru a schimba stupul selectat
+function changeHive() {
+    const hiveSelect = document.getElementById('hive-select');
+    const newHive = hiveSelect.value;
+    
+    console.log('Schimbare stup:', currentHive, '->', newHive);
+    currentHive = newHive;
+    
+    if (allData) {
+        // Actualizăm tabelul pentru stupul selectat
+        console.log('Actualizare tabel pentru stupul:', currentHive);
+        updateTable(allData, currentPeriod);
+        
+        // Actualizăm și statisticile generale
+        updateStats(allData, currentHive);
+    }
+}
+
+// Funcția pentru a popula selectorul de stupi
+function populateHiveSelector() {
+    const hiveSelect = document.getElementById('hive-select');
+    
+    // Golim selectorul
+    hiveSelect.innerHTML = '';
+    
+    // Adăugăm opțiunea pentru toți stupii
+    const allOption = document.createElement('option');
+    allOption.value = 'all';
+    allOption.textContent = 'Toți stupii';
+    hiveSelect.appendChild(allOption);
+    
+    // Adăugăm opțiuni pentru fiecare stup disponibil (exceptând 'all' care este deja adăugat)
+    availableHives.forEach(hive => {
+        if (hive !== 'all') {
+            const option = document.createElement('option');
+            option.value = hive;
+            option.textContent = hive === 'default' ? 'Stup Principal' : `Stup ${hive}`;
+            hiveSelect.appendChild(option);
+        }
+    });
+    
+    // Setăm stupul curent
+    hiveSelect.value = currentHive;
+}
+
 // Funcția pentru a inițializa controalele
 function initControls() {
     // Setăm data de astăzi ca valoare maximă pentru selectoarele de dată
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('start-date').max = today;
     document.getElementById('end-date').max = today;
+    
+    // Populăm selectorul de stupi
+    populateHiveSelector();
     
     // Setăm valoarea selectată a selectorului de perioadă
     document.getElementById('period-select').value = currentPeriod;
@@ -589,16 +746,19 @@ async function initPage() {
     if (allData) {
         console.log('Date preluate cu succes, actualizăm pentru perioada:', currentPeriod);
         
-        // Actualizăm tabelul pentru perioada curentă
-        updateTable(allData, currentPeriod);
+        // Actualizăm selectorul de stupi cu noile date
+        populateHiveSelector();
+        
+        // Actualizăm tabelul pentru perioada curentă și stupul selectat
+        updateTable(allData, currentPeriod, currentHive);
         
         // Actualizăm statisticile generale
-        updateStats(allData);
+        updateStats(allData, currentHive);
         
         // Asigurăm-ne că statisticile perioadei sunt actualizate corect
-        const filteredData = filterDataByPeriod(allData, currentPeriod);
+        const filteredData = filterDataByPeriod(allData, currentPeriod, currentHive);
         const stats = calculatePeriodStats(filteredData);
-        console.log('Statistici inițiale calculate pentru perioada', currentPeriod, ':', stats);
+        console.log('Statistici inițiale calculate pentru perioada', currentPeriod, 'și stupul', currentHive, ':', stats);
         
         // Actualizăm manual statisticile
         document.getElementById('period-harvest').textContent = stats.totalHarvest + ' kg';

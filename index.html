@@ -70,6 +70,14 @@
         <section class="data-table">
             <h2>Toate măsurătorile</h2>
             <div class="filter-controls">
+                <div class="hive-selector">
+                    <label for="hive-select">Stup:</label>
+                    <select id="hive-select" onchange="changeHive()">
+                        <option value="all">Toți stupii</option>
+                        <!-- Alte opțiuni vor fi adăugate dinamic -->
+                    </select>
+                </div>
+                
                 <div class="period-selector">
                     <label for="period-select">Perioada:</label>
                     <select id="period-select" onchange="changePeriod()">
@@ -121,11 +129,12 @@
                             <th>Recolta totală (kg)</th>
                             <th>Baterie (V)</th>
                             <th>Ploaie</th>
+                            <th>ID Stup</th>
                         </tr>
                     </thead>
                     <tbody id="table-body">
                         <tr>
-                            <td colspan="7" class="loading-message">Se încarcă datele...</td>
+                            <td colspan="8" class="loading-message">Se încarcă datele...</td>
                         </tr>
                     </tbody>
                 </table>
