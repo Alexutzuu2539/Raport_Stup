@@ -366,6 +366,13 @@ function getTotalPages() {
 
 // Funcția pentru a merge la prima pagină
 function goToFirstPage() {
+    const firstPageLink = document.getElementById('first-page');
+    // Verificăm dacă butonul este dezactivat
+    if (firstPageLink.disabled || firstPageLink.classList.contains('disabled')) {
+        console.log("Navigare la prima pagină: buton dezactivat");
+        return false;
+    }
+    
     console.log("Navigare la prima pagină");
     if (currentPage !== 1) {
         currentPage = 1;
@@ -376,6 +383,13 @@ function goToFirstPage() {
 
 // Funcția pentru a merge la pagina anterioară
 function goToPrevPage() {
+    const prevPageLink = document.getElementById('prev-page');
+    // Verificăm dacă butonul este dezactivat
+    if (prevPageLink.disabled || prevPageLink.classList.contains('disabled')) {
+        console.log("Navigare la pagina anterioară: buton dezactivat");
+        return false;
+    }
+    
     console.log("Navigare la pagina anterioară");
     if (currentPage > 1) {
         currentPage--;
@@ -386,6 +400,13 @@ function goToPrevPage() {
 
 // Funcția pentru a merge la pagina următoare
 function goToNextPage() {
+    const nextPageLink = document.getElementById('next-page');
+    // Verificăm dacă butonul este dezactivat
+    if (nextPageLink.disabled || nextPageLink.classList.contains('disabled')) {
+        console.log("Navigare la pagina următoare: buton dezactivat");
+        return false;
+    }
+    
     console.log("Navigare la pagina următoare");
     const totalPages = getTotalPages();
     if (currentPage < totalPages) {
@@ -397,6 +418,13 @@ function goToNextPage() {
 
 // Funcția pentru a merge la ultima pagină
 function goToLastPage() {
+    const lastPageLink = document.getElementById('last-page');
+    // Verificăm dacă butonul este dezactivat
+    if (lastPageLink.disabled || lastPageLink.classList.contains('disabled')) {
+        console.log("Navigare la ultima pagină: buton dezactivat");
+        return false;
+    }
+    
     console.log("Navigare la ultima pagină");
     const totalPages = getTotalPages();
     if (currentPage !== totalPages) {
@@ -438,10 +466,18 @@ function updatePaginationControls() {
     firstPageLink.classList.toggle('disabled', isFirstPage);
     prevPageLink.classList.toggle('disabled', isFirstPage);
     
+    // Actualizăm atributul disabled pentru prima pagină și pagina anterioară
+    firstPageLink.disabled = isFirstPage;
+    prevPageLink.disabled = isFirstPage;
+    
     // Următoarea și Ultima sunt dezactivate la ultima pagină
     const isLastPage = currentPage >= totalPages;
     nextPageLink.classList.toggle('disabled', isLastPage);
     lastPageLink.classList.toggle('disabled', isLastPage);
+    
+    // Actualizăm atributul disabled pentru pagina următoare și ultima pagină
+    nextPageLink.disabled = isLastPage;
+    lastPageLink.disabled = isLastPage;
     
     console.log(`Paginare: Pagina ${currentPage}/${totalPages}, Elemente/pagină: ${itemsPerPage}`);
 }
@@ -571,11 +607,13 @@ function updateTable(data, period = 'all') {
         // Actualizăm textul de paginare
         document.getElementById('pagination-text').textContent = 'Pagina 0 din 0';
         
-        // Dezactivăm toate link-urile de paginare
-        document.getElementById('first-page').classList.add('disabled');
-        document.getElementById('prev-page').classList.add('disabled');
-        document.getElementById('next-page').classList.add('disabled');
-        document.getElementById('last-page').classList.add('disabled');
+        // Dezactivăm toate link-urile de paginare folosind atât clasa cât și atributul disabled
+        const paginationLinks = ['first-page', 'prev-page', 'next-page', 'last-page'];
+        paginationLinks.forEach(id => {
+            const link = document.getElementById(id);
+            link.classList.add('disabled');
+            link.disabled = true;
+        });
         
         return;
     }
