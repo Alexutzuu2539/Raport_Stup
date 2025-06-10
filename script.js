@@ -112,14 +112,14 @@ function updateTable(data) {
         tempCell.textContent = parseFloat(row[2]).toFixed(1) + ' °C';
         tr.appendChild(tempCell);
         
-        // Diferență (cu culoare)
+        // Recolta zilnică (diferență cu culoare)
         const diffCell = document.createElement('td');
         const diff = parseFloat(row[3]);
         diffCell.textContent = diff.toFixed(2) + ' kg';
         diffCell.className = diff >= 0 ? 'positive' : 'negative';
         tr.appendChild(diffCell);
         
-        // Total recoltă
+        // Recolta totală
         const harvestCell = document.createElement('td');
         harvestCell.textContent = parseFloat(row[4]).toFixed(2) + ' kg';
         tr.appendChild(harvestCell);
