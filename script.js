@@ -12,6 +12,16 @@ let currentPage = 1;
 let itemsPerPage = 15;
 let filteredData = [];
 
+// Funcție utilitară pentru parsarea sigură a numerelor
+function safeParseFloat(value) {
+    if (typeof value === 'string') {
+        // Înlocuim virgula cu punct pentru parseFloat
+        value = value.replace(',', '.');
+    }
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
 // Funcție pentru actualizarea datei și orei curente
 function updateCurrentDateTime() {
     const now = new Date();
@@ -62,6 +72,9 @@ async function fetchSheetData() {
         const response = await fetch(PUBLISHED_URL);
         const text = await response.text();
         
+        // Debug - afișăm răspunsul brut
+        console.log('Răspuns CSV brut:', text.substring(0, 500) + '...');
+        
         // Parsare CSV
         const rows = text.split('\n').map(row => {
             // Gestionare corectă a virgulelor din CSV
@@ -92,6 +105,13 @@ async function fetchSheetData() {
         // Restul sunt date
         const dataRows = rows.slice(1);
         
+        // Debug - afișăm primul și ultimul rând
+        if (dataRows.length > 0) {
+            console.log('Anteturi:', headers);
+            console.log('Primul rând:', dataRows[0]);
+            console.log('Ultimul rând:', dataRows[dataRows.length - 1]);
+        }
+        
         // Procesare date pentru a adăuga obiecte Date JavaScript
         const processedRows = dataRows.map(row => {
             const processedRow = [...row];  // copiem rândul
@@ -101,6 +121,7 @@ async function fetchSheetData() {
             } catch (e) {
                 // Dacă nu putem converti, folosim data curentă
                 processedRow.dateObj = new Date();
+                console.error('Eroare la conversie dată:', e, row[0]);
             }
             return processedRow;
         });
@@ -193,12 +214,13 @@ function calculatePeriodStats(filteredData) {
     let totalTemp = 0;
     
     filteredData.forEach(row => {
-        const dailyHarvest = parseFloat(row[3]);
+        const dailyHarvest = safeParseFloat(row[3]);
+        
         if (dailyHarvest > 0) {
             totalHarvest += dailyHarvest;
         }
         
-        totalTemp += parseFloat(row[2]);
+        totalTemp += safeParseFloat(row[2]);
     });
     
     return {
@@ -307,29 +329,29 @@ function updateTable(data, period = 'all') {
         
         // Greutate
         const weightCell = document.createElement('td');
-        weightCell.textContent = parseFloat(row[1]).toFixed(2) + ' kg';
+        weightCell.textContent = safeParseFloat(row[1]).toFixed(2) + ' kg';
         tr.appendChild(weightCell);
         
         // Temperatură
         const tempCell = document.createElement('td');
-        tempCell.textContent = parseFloat(row[2]).toFixed(1) + ' °C';
+        tempCell.textContent = safeParseFloat(row[2]).toFixed(1) + ' °C';
         tr.appendChild(tempCell);
         
         // Recolta zilnică (diferență cu culoare)
         const diffCell = document.createElement('td');
-        const diff = parseFloat(row[3]);
+        const diff = safeParseFloat(row[3]);
         diffCell.textContent = diff.toFixed(2) + ' kg';
         diffCell.className = diff >= 0 ? 'positive' : 'negative';
         tr.appendChild(diffCell);
         
         // Recolta totală
         const harvestCell = document.createElement('td');
-        harvestCell.textContent = parseFloat(row[4]).toFixed(2) + ' kg';
+        harvestCell.textContent = safeParseFloat(row[4]).toFixed(2) + ' kg';
         tr.appendChild(harvestCell);
         
         // Baterie
         const batteryCell = document.createElement('td');
-        batteryCell.textContent = parseFloat(row[5]).toFixed(1) + ' V';
+        batteryCell.textContent = safeParseFloat(row[5]).toFixed(1) + ' V';
         tr.appendChild(batteryCell);
         
         // Ploaie
@@ -426,23 +448,28 @@ function updateStats(data) {
     document.getElementById('last-update').textContent = lastDate;
     
     // Greutate curentă
-    document.getElementById('current-weight').textContent = parseFloat(lastRow[1]).toFixed(2) + ' kg';
+    document.getElementById('current-weight').textContent = safeParseFloat(lastRow[1]).toFixed(2) + ' kg';
     
     // Temperatură curentă
-    document.getElementById('current-temp').textContent = parseFloat(lastRow[2]).toFixed(1) + ' °C';
+    document.getElementById('current-temp').textContent = safeParseFloat(lastRow[2]).toFixed(1) + ' °C';
     
     // Recolta zilnică (diferența)
-    const dailyHarvest = parseFloat(lastRow[3]);
+    // Debug pentru verificarea valorii din sheet
+    console.log('Valoare recoltă zilnică din sheet:', lastRow[3]);
+    
+    const dailyHarvest = safeParseFloat(lastRow[3]);
+    console.log('Valoare recoltă zilnică după parsare:', dailyHarvest);
+    
     const dailyHarvestElement = document.getElementById('daily-harvest');
     dailyHarvestElement.textContent = dailyHarvest.toFixed(2) + ' kg';
     // Adăugăm culoare în funcție de valoare
     dailyHarvestElement.className = dailyHarvest >= 0 ? 'positive' : 'negative';
     
     // Total recoltă
-    document.getElementById('total-harvest').textContent = parseFloat(lastRow[4]).toFixed(2) + ' kg';
+    document.getElementById('total-harvest').textContent = safeParseFloat(lastRow[4]).toFixed(2) + ' kg';
     
     // Baterie
-    document.getElementById('battery-level').textContent = parseFloat(lastRow[5]).toFixed(1) + ' V';
+    document.getElementById('battery-level').textContent = safeParseFloat(lastRow[5]).toFixed(1) + ' V';
     
     // Ploaie
     document.getElementById('rain-status').textContent = lastRow[6];
