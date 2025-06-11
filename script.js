@@ -57,35 +57,87 @@ function processApiData(data) {
     
     console.log("Date încărcate cu succes de la API:", data);
     
-    // Convertim datele primite într-un format compatibil cu aplicația
-    const processedData = data.data.map(item => {
-        // Adaptăm structura datelor primite de la API la structura așteptată de aplicație
-        return {
-            date: item.Dată || item.Data || new Date().toISOString().split('T')[0],
-            weight: parseFloat(item.Greutate || 0),
-            temperature: parseFloat(item.Temperatură || item.Temperatura || 0),
-            dailyHarvest: parseFloat(item.RecoltaZilnică || item["Recolta zilnică"] || 0),
-            totalHarvest: parseFloat(item.RecoltaTotală || item["Recolta totală"] || 0),
-            battery: parseFloat(item.Baterie || 0),
-            rain: item.Ploaie || "Nu",
-            // Adăugăm și câmpul dateObj pentru compatibilitate
-            dateObj: new Date(item.Dată || item.Data || new Date())
-        };
-    });
+    // Verificăm formatul datelor și le procesăm corespunzător
+    let processedData = [];
+    
+    // Verificăm dacă data.data este un obiect (cu foi ca proprietăți) sau un array
+    if (data.data && typeof data.data === 'object') {
+        // Cazul când data.data este un obiect cu foi
+        if (!Array.isArray(data.data)) {
+            console.log("Datele API sunt structurate pe foi:", Object.keys(data.data));
+            
+            // Inițializăm obiectul sheetsData pentru fiecare foaie
+            sheetsData = {};
+            
+            // Procesăm fiecare foaie
+            for (const sheetName in data.data) {
+                if (!data.data[sheetName] || !Array.isArray(data.data[sheetName])) {
+                    console.warn(`Date invalide pentru foaia ${sheetName}:`, data.data[sheetName]);
+                    continue;
+                }
+                
+                // Procesăm datele pentru această foaie
+                sheetsData[sheetName] = data.data[sheetName].map(item => {
+                    return {
+                        date: item.Dată || item.Data || new Date().toISOString().split('T')[0],
+                        weight: safeParseFloat(item.Greutate || 0),
+                        temperature: safeParseFloat(item.Temperatură || item.Temperatura || 0),
+                        dailyHarvest: safeParseFloat(item.RecoltaZilnică || item["Recolta zilnică"] || 0),
+                        totalHarvest: safeParseFloat(item.RecoltaTotală || item["Recolta totală"] || 0),
+                        battery: safeParseFloat(item.Baterie || 0),
+                        rain: item.Ploaie || "Nu",
+                        // Adăugăm și câmpul dateObj pentru compatibilitate
+                        dateObj: new Date(item.Dată || item.Data || new Date()),
+                        // Adăugăm informații despre foaie
+                        sheetId: sheetName
+                    };
+                });
+                
+                // Adăugăm datele procesate la array-ul total
+                processedData = processedData.concat(sheetsData[sheetName]);
+            }
+            
+            // Sortăm datele după dată
+            processedData.sort((a, b) => b.dateObj - a.dateObj);
+            
+            // Actualizăm datele combinate
+            combinedData = processedData;
+        } else {
+            // Cazul când data.data este un array
+            processedData = data.data.map(item => {
+                return {
+                    date: item.Dată || item.Data || new Date().toISOString().split('T')[0],
+                    weight: safeParseFloat(item.Greutate || 0),
+                    temperature: safeParseFloat(item.Temperatură || item.Temperatura || 0),
+                    dailyHarvest: safeParseFloat(item.RecoltaZilnică || item["Recolta zilnică"] || 0),
+                    totalHarvest: safeParseFloat(item.RecoltaTotală || item["Recolta totală"] || 0),
+                    battery: safeParseFloat(item.Baterie || 0),
+                    rain: item.Ploaie || "Nu",
+                    // Adăugăm și câmpul dateObj pentru compatibilitate
+                    dateObj: new Date(item.Dată || item.Data || new Date())
+                };
+            });
+            
+            // Actualizăm datele globale
+            sheetsData = { 'api': processedData };
+            combinedData = processedData;
+        }
+    } else {
+        console.error("Format de date neașteptat de la API:", data);
+        return;
+    }
     
     // Actualizăm interfața cu datele primite
     if (processedData && processedData.length > 0) {
-        // Actualizăm datele globale
-        sheetsData = { 'api': processedData };
-        combinedData = processedData;
-        
         // Actualizăm interfața
         updateTable(processedData, 'today');
-        updateStats(processedData, 'api');
+        updateStats(processedData, 'all');
         
         // Resetăm paginarea
         currentPage = 1;
         displayCurrentPage();
+    } else {
+        console.warn("Nu s-au găsit date procesabile în răspunsul API");
     }
 }
 
@@ -1180,21 +1232,28 @@ function combineAllSheetsData() {
         
         // Adăugăm fiecare rând cu informațiile suplimentare despre foaie
         for (const row of sheetData) {
-            // Creăm o copie a rândului
-            const newRow = [...row];
-            
-            // Adăugăm informații despre foaie
-            newRow.sheetId = sheet;
-            
-            // Adăugăm la array-ul combinat
-            combined.push(newRow);
+            // Verificăm dacă row este un obiect (așa cum ne așteptăm)
+            if (typeof row === 'object' && row !== null) {
+                // Creăm o copie a obiectului rând
+                const newRow = { ...row };
+                
+                // Adăugăm informații despre foaie dacă nu există deja
+                if (!newRow.sheetId) {
+                    newRow.sheetId = sheet;
+                }
+                
+                // Adăugăm la array-ul combinat
+                combined.push(newRow);
+            } else {
+                console.warn(`Rând invalid în foaia ${sheet}:`, row);
+            }
         }
     }
     
-    // Sortăm datele după dată (cele mai vechi primele)
+    // Sortăm datele după dată (cele mai noi primele)
     combined.sort((a, b) => {
         if (!a.dateObj || !b.dateObj) return 0;
-        return a.dateObj - b.dateObj;
+        return b.dateObj - a.dateObj;
     });
     
     console.log(`S-au combinat ${combined.length} rânduri din ${sheets.length} stupi`);
