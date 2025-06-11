@@ -7,37 +7,43 @@ const sheetUrls = {
 };
 
 // URL pentru API-ul Web Apps
-const webAppUrl = "https://script.google.com/macros/s/AKfycbwOoPE_1yEvqL0TJEtgETjyBx1rD3Ij3cycTDn-czOADfE-BvCc9RLEsmjPshgYbNOx/exec";
+// IMPORTANT: Înlocuiește acest URL cu cel generat după publicarea scriptului ca Web App
+const webAppUrl = "https://script.google.com/macros/s/AKfycbz55c1crpkT5QTyAq8k17qKFwanuOetxaieyAdAS6jhKaaAzqJkzYNbAIUUDaUE0f8H/exec";
+// Exemplu URL nou: https://script.google.com/macros/s/CODUL_TAU_UNIC_GENERAT_DE_GOOGLE/exec
 
-// Funcție pentru a face cereri către Web App API cu JSONP pentru compatibilitate CORS
-function fetchDataFromWebApp(callback) {
-    console.log("Încercăm să preluăm datele direct de la Web App folosind JSONP...");
-    
-    // Creăm un element script pentru cererea JSONP
-    const script = document.createElement('script');
-    
-    // Definim o funcție globală care va fi apelată de răspunsul JSONP
-    window.handleWebAppResponse = function(data) {
-        console.log("Am primit răspuns de la Web App:", data);
-        callback(data);
-        // Curățăm după ce am primit răspunsul
-        document.body.removeChild(script);
-        delete window.handleWebAppResponse;
-    };
-    
-    // Adăugăm gestionarea erorilor
-    script.onerror = function() {
-        console.error("Eroare la încărcarea scriptului JSONP pentru Web App");
-        callback(null);
-        document.body.removeChild(script);
-        delete window.handleWebAppResponse;
-    };
-    
-    // Setăm URL-ul cu parametrul callback
-    script.src = `${webAppUrl}?callback=handleWebAppResponse`;
-    
-    // Adăugăm scriptul la document pentru a iniția cererea
-    document.body.appendChild(script);
+// Funcție pentru a încărca date direct de la Web App API
+async function fetchDataFromWebAppAPI(sheetName = null) {
+    try {
+        console.log(`Încercăm să preluăm date direct de la Web App API${sheetName ? ' pentru foaia ' + sheetName : ''}`);
+        
+        // Construim URL-ul pentru cerere
+        let url = webAppUrl;
+        if (sheetName) {
+            url += `?sheet=${sheetName}`;
+        }
+        
+        // Adăugăm un timestamp pentru a evita cache-ul
+        url += `${url.includes('?') ? '&' : '?'}timestamp=${Date.now()}`;
+        
+        // Facem cererea
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.error || 'Eroare necunoscută');
+        }
+        
+        console.log(`Date primite cu succes de la Web App API${sheetName ? ' pentru foaia ' + sheetName : ''}`);
+        return data;
+    } catch (error) {
+        console.error(`Eroare la preluarea datelor de la Web App API${sheetName ? ' pentru foaia ' + sheetName : ''}:`, error);
+        throw error;
+    }
 }
 
 // Funcție pentru a procesa datele primite de la API
@@ -1453,8 +1459,55 @@ async function initPage() {
         });
     }
     
-    // Încercăm mai întâi metoda standard de încărcare a datelor
     try {
+        // Încercăm mai întâi să încărcăm datele de la Web App API
+        console.log("Încercăm să încărcăm datele de la Web App API...");
+        
+        const apiData = await fetchDataFromWebAppAPI().catch(e => null);
+        
+        if (apiData && apiData.success && apiData.data) {
+            console.log("Date încărcate cu succes de la Web App API");
+            
+            // Procesăm datele primite
+            sheetsData = {};
+            
+            // Verificăm structura datelor primite
+            if (Array.isArray(apiData.data)) {
+                // Dacă datele sunt un array, le tratăm ca pe o singură foaie
+                sheetsData['api'] = processApiDataArray(apiData.data);
+                combinedData = sheetsData['api'];
+            } else {
+                // Dacă datele sunt un obiect, le tratăm ca pe mai multe foi
+                for (const sheetName in apiData.data) {
+                    if (Array.isArray(apiData.data[sheetName])) {
+                        sheetsData[sheetName] = processApiDataArray(apiData.data[sheetName]);
+                    }
+                }
+                
+                // Combinăm datele de la toate foile
+                if (typeof combineAllSheetsData === 'function') {
+                    combineAllSheetsData();
+                }
+            }
+            
+            // Afișăm datele
+            if (combinedData && combinedData.length > 0) {
+                console.log("Inițializare cu date combinate:", combinedData.length, "înregistrări");
+                currentSheet = 'all';
+                updateTable(combinedData, 'today');
+                
+                // Actualizăm statisticile
+                updateStats(combinedData, 'all');
+                
+                // Resetăm la prima pagină și afișăm datele
+                currentPage = 1;
+                displayCurrentPage();
+                
+                return; // Ieșim din funcție dacă am reușit să încărcăm datele
+            }
+        }
+        
+        // Dacă API-ul nu a funcționat, încercăm metoda standard
         console.log("Încercăm metoda standard de încărcare a datelor...");
         
         // Verificăm dacă funcțiile necesare există
@@ -1488,31 +1541,61 @@ async function initPage() {
             }
         }
         
-        // Dacă am ajuns aici, înseamnă că metoda standard a eșuat
-        throw new Error("Metoda standard de încărcare a datelor a eșuat");
+        // Dacă am ajuns aici, înseamnă că ambele metode au eșuat
+        throw new Error("Toate metodele de încărcare a datelor au eșuat");
         
     } catch (error) {
-        console.error("Eroare la încărcarea datelor prin metoda standard:", error);
+        console.error("Eroare la încărcarea datelor:", error);
         
-        // Încercăm să preluăm datele de la Web App
-        console.log("Încercăm să preluăm datele de la Web App...");
+        // Încercăm să preluăm datele prin JSONP
+        console.log("Încercăm să preluăm datele prin JSONP...");
         
         fetchDataFromWebApp(function(data) {
             if (data && data.success) {
                 processApiData(data);
             } else {
-                console.error("Nu s-au putut încărca date de la Web App");
+                console.error("Nu s-au putut încărca date prin JSONP");
                 
                 // Încărcăm datele de test ca ultimă soluție
                 if (typeof loadDemoData === 'function') {
                     console.log("Încărcăm datele de test...");
                     loadDemoData();
                 } else {
-                    // Afișăm un mesaj de eroare
-                    document.getElementById('table-body').innerHTML = 
-                        `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor. Vă rugăm reîncărcați pagina sau contactați administratorul.</td></tr>`;
+                    // Generăm date de test pentru toate foile
+                    console.log("Generăm date de test pentru toate foile...");
+                    sheetsData = {};
                     
-                    displayError(new Error("Nu s-au putut încărca datele prin nicio metodă disponibilă"));
+                    for (const sheetName of ['foaie1', 'foaie2', 'foaie3']) {
+                        const testData = generateTestData(sheetName);
+                        if (testData && testData.data) {
+                            sheetsData[sheetName] = testData.data;
+                        }
+                    }
+                    
+                    // Combinăm datele de la toate foile
+                    if (typeof combineAllSheetsData === 'function') {
+                        combineAllSheetsData();
+                    }
+                    
+                    // Afișăm datele combinate
+                    if (combinedData && combinedData.length > 0) {
+                        console.log("Inițializare cu date de test:", combinedData.length, "înregistrări");
+                        currentSheet = 'all';
+                        updateTable(combinedData, 'today');
+                        
+                        // Actualizăm statisticile
+                        updateStats(combinedData, 'all');
+                        
+                        // Resetăm la prima pagină și afișăm datele
+                        currentPage = 1;
+                        displayCurrentPage();
+                    } else {
+                        // Afișăm un mesaj de eroare
+                        document.getElementById('table-body').innerHTML = 
+                            `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor. Vă rugăm reîncărcați pagina sau contactați administratorul.</td></tr>`;
+                        
+                        displayError(new Error("Nu s-au putut încărca datele prin nicio metodă disponibilă"));
+                    }
                 }
             }
         });
@@ -1522,70 +1605,28 @@ async function initPage() {
     setInterval(initPage, 15 * 60 * 1000);
 }
 
-// Actualizăm pagina periodic
-window.onload = function() {
-    initPage();
-    
-    // Actualizare la fiecare 15 minute
-    setInterval(initPage, 15 * 60 * 1000);
-};
-
-function doGet(e) {
-  // Permitem accesul din orice domeniu
-  var output = ContentService.createTextOutput();
-  output.setMimeType(ContentService.MimeType.JSON);
-  
-  try {
-    // Obținem ID-ul foii
-    var spreadsheetId = e.parameter.id || SpreadsheetApp.getActiveSpreadsheet().getId();
-    var sheetName = e.parameter.sheet || 'Sheet1';
-    
-    // Deschidem foaia
-    var sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
-    
-    if (!sheet) {
-      return output.setContent(JSON.stringify({
-        error: true, 
-        message: 'Foaia specificată nu există'
-      }));
+// Funcție pentru procesarea datelor primite de la API
+function processApiDataArray(dataArray) {
+    if (!Array.isArray(dataArray) || dataArray.length === 0) {
+        return [];
     }
     
-    // Obținem datele
-    var dataRange = sheet.getDataRange();
-    var values = dataRange.getValues();
-    
-    // Pregătim datele pentru răspuns
-    var headers = values[0];
-    var result = [];
-    
-    for (var i = 1; i < values.length; i++) {
-      var row = values[i];
-      var rowData = {};
-      
-      for (var j = 0; j < headers.length; j++) {
-        rowData[headers[j]] = row[j];
-      }
-      
-      result.push(rowData);
-    }
-    
-    // Returnăm datele în format JSON
-    var responseData = JSON.stringify({
-      success: true,
-      data: result
+    return dataArray.map(item => {
+        // Convertim datele primite într-un format compatibil cu aplicația
+        const processedItem = {
+            date: item.Data || item.Dată || item.date || new Date().toISOString().split('T')[0],
+            weight: safeParseFloat(item.Greutate || item.weight || 0),
+            temperature: safeParseFloat(item.Temperatură || item.Temperatura || item.temperature || 0),
+            dailyHarvest: safeParseFloat(item.RecoltaZilnică || item["Recolta zilnică"] || item.dailyHarvest || 0),
+            totalHarvest: safeParseFloat(item.RecoltaTotală || item["Recolta totală"] || item.totalHarvest || 0),
+            battery: safeParseFloat(item.Baterie || item.battery || 0),
+            rain: item.Ploaie || item.rain || "Nu",
+            // Adăugăm și câmpul dateObj pentru filtrare
+            dateObj: new Date(item.Data || item.Dată || item.date || new Date())
+        };
+        
+        return processedItem;
     });
-    
-    // ContentService nu folosește setHeader ci trebuie să folosim alte metode
-    return ContentService.createTextOutput(responseData)
-      .setMimeType(ContentService.MimeType.JSON)
-      .setContent(responseData);
-    
-  } catch (error) {
-    return output.setContent(JSON.stringify({
-      error: true,
-      message: error.toString()
-    }));
-  }
 }
 
 // Funcție pentru a încărca un fișier CSV prin proxy pentru a evita CORS
@@ -1812,4 +1853,40 @@ async function fetchDirectly(url, sheetKey) {
         console.error(`Eroare la preluarea directă pentru foaia ${sheetKey}:`, error);
         throw error;
     }
-} 
+}
+
+// Funcție pentru a face cereri către Web App API cu JSONP pentru compatibilitate CORS
+function fetchDataFromWebApp(callback) {
+    console.log("Încercăm să preluăm datele direct de la Web App folosind JSONP...");
+    
+    // Creăm un element script pentru cererea JSONP
+    const script = document.createElement('script');
+    
+    // Definim o funcție globală care va fi apelată de răspunsul JSONP
+    window.handleWebAppResponse = function(data) {
+        console.log("Am primit răspuns de la Web App:", data);
+        callback(data);
+        // Curățăm după ce am primit răspunsul
+        document.body.removeChild(script);
+        delete window.handleWebAppResponse;
+    };
+    
+    // Adăugăm gestionarea erorilor
+    script.onerror = function() {
+        console.error("Eroare la încărcarea scriptului JSONP pentru Web App");
+        callback(null);
+        document.body.removeChild(script);
+        delete window.handleWebAppResponse;
+    };
+    
+    // Setăm URL-ul cu parametrul callback
+    script.src = `${webAppUrl}?callback=handleWebAppResponse`;
+    
+    // Adăugăm scriptul la document pentru a iniția cererea
+    document.body.appendChild(script);
+}
+
+// Actualizăm pagina periodic
+window.onload = function() {
+    initPage();
+};
