@@ -5,9 +5,9 @@
 // Copiați link-ul generat și înlocuiți URL-urile de mai jos
 
 const SHEET_URLS = {
-    'foaie1': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?output=csv',
-    'foaie2': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE4-_BmtoGvaWD5I_lI0GG-OavL6mTa18wn_ON87Tvw-B1FoGWhBGI1Q-JHjU5pCVIEiYu09ii6bNB/pub?output=csv',
-    'foaie3': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTikN6b-AGCvrkBB8PM3TG4bc4_lBbe6BeP4NbJqK7lw2apxORR3x77QJlRAIIj6edAARg8PRWqvjRq/pub?output=csv'
+    'foaie1': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?gid=0&single=true&output=csv',
+    'foaie2': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE4-_BmtoGvaWD5I_lI0GG-OavL6mTa18wn_ON87Tvw-B1FoGWhBGI1Q-JHjU5pCVIEiYu09ii6bNB/pub?gid=0&single=true&output=csv',
+    'foaie3': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTikN6b-AGCvrkBB8PM3TG4bc4_lBbe6BeP4NbJqK7lw2apxORR3x77QJlRAIIj6edAARg8PRWqvjRq/pub?gid=0&single=true&output=csv'
 };
 
 // URL-ul implicit (prima foaie)
@@ -83,6 +83,39 @@ function cleanupOldChartElements() {
     }
 }
 
+// Funcția pentru a încerca din nou preluarea datelor cu întârziere
+async function retryFetchWithDelay(sheetName, retries = 2, delay = 3000) {
+    console.log(`Încercare de recuperare date pentru ${sheetName}, încercări rămase: ${retries}`);
+    
+    // Afișăm mesaj de încercare în tabel
+    document.getElementById('table-body').innerHTML = 
+        `<tr><td colspan="8" class="loading-message">Se încearcă din nou preluarea datelor... (${retries} încercări rămase)</td></tr>`;
+    
+    // Așteptăm perioada de delay
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    try {
+        // Încercăm din nou preluarea datelor
+        const data = await fetchSheetData(sheetName);
+        if (data) {
+            console.log(`Recuperare reușită pentru ${sheetName} după reîncercare`);
+            return data;
+        } else if (retries > 1) {
+            // Dacă încă nu avem date dar mai avem încercări, reîncercăm
+            return retryFetchWithDelay(sheetName, retries - 1, delay);
+        } else {
+            console.error(`Toate încercările de recuperare pentru ${sheetName} au eșuat`);
+            return null;
+        }
+    } catch (error) {
+        console.error(`Eroare la reîncercarea preluării datelor pentru ${sheetName}:`, error);
+        if (retries > 1) {
+            return retryFetchWithDelay(sheetName, retries - 1, delay);
+        }
+        return null;
+    }
+}
+
 // Funcția pentru a prelua datele din Google Sheets (format CSV)
 async function fetchSheetData(sheetName = currentSheet) {
     try {
@@ -100,6 +133,8 @@ async function fetchSheetData(sheetName = currentSheet) {
             console.error(`Eroare HTTP la preluarea datelor pentru foaia ${sheetName}: ${response.status} ${response.statusText}`);
             document.getElementById('table-body').innerHTML = 
                 `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: HTTP ${response.status}</td></tr>`;
+            // Afișăm containerul de eroare
+            document.getElementById('error-container').style.display = 'block';
             return null;
         }
         
@@ -112,8 +147,14 @@ async function fetchSheetData(sheetName = currentSheet) {
             console.error(`Răspuns prea scurt sau gol pentru foaia ${sheetName}: "${text}"`);
             document.getElementById('table-body').innerHTML = 
                 `<tr><td colspan="8" class="loading-message">Eroare: Răspuns gol sau invalid de la Google Sheets</td></tr>`;
+            // Afișăm containerul de eroare
+            document.getElementById('error-container').style.display = 'block';
             return null;
         }
+        
+        // Dacă am ajuns aici, înseamnă că datele s-au încărcat cu succes
+        // Ascundem containerul de eroare dacă era afișat
+        document.getElementById('error-container').style.display = 'none';
         
         // Parsare CSV
         const rows = text.split('\n').map(row => {
@@ -207,12 +248,13 @@ async function fetchAllSheets() {
     const fetchPromises = allSheets.map(sheet => {
         return fetchSheetData(sheet).catch(err => {
             console.error(`Eroare la preluarea datelor pentru foaia ${sheet}:`, err);
-            return null;
+            // Încercăm din nou preluarea datelor pentru această foaie
+            return retryFetchWithDelay(sheet);
         });
     });
     
     // Așteptăm toate promisiunile să se finalizeze
-    await Promise.all(fetchPromises);
+    const results = await Promise.all(fetchPromises);
     
     // Verificăm câte foi au fost încărcate cu succes
     const loadedSheets = Object.keys(sheetsData);
@@ -229,8 +271,13 @@ async function fetchAllSheets() {
         console.error('Nu s-a putut încărca nicio foaie!');
         document.getElementById('table-body').innerHTML = 
             '<tr><td colspan="8" class="loading-message">Eroare: Nu s-a putut încărca nicio foaie de date</td></tr>';
+        // Afișăm containerul de eroare
+        document.getElementById('error-container').style.display = 'block';
         return false;
     }
+    
+    // Ascundem containerul de eroare dacă era afișat, deoarece cel puțin o foaie s-a încărcat
+    document.getElementById('error-container').style.display = 'none';
     
     return true;
 }
@@ -986,6 +1033,37 @@ function formatDateForInput(date) {
     return `${year}-${month}-${day}`;
 }
 
+// Funcție pentru a testa accesibilitatea URL-urilor
+async function testSheetUrls() {
+    console.log('Testare accesibilitate URL-uri...');
+    const results = {};
+    
+    for (const [sheetName, url] of Object.entries(SHEET_URLS)) {
+        try {
+            console.log(`Testare URL pentru ${sheetName}: ${url}`);
+            const response = await fetch(url, { method: 'HEAD' });
+            
+            results[sheetName] = {
+                status: response.status,
+                ok: response.ok,
+                statusText: response.statusText
+            };
+            
+            console.log(`Rezultat test pentru ${sheetName}: ${response.status} ${response.statusText}`);
+        } catch (error) {
+            console.error(`Eroare la testarea URL-ului pentru ${sheetName}:`, error);
+            results[sheetName] = {
+                status: 0,
+                ok: false,
+                statusText: error.message
+            };
+        }
+    }
+    
+    console.log('Rezultate teste URL-uri:', results);
+    return results;
+}
+
 // Inițializarea paginii
 async function initPage() {
     console.log('Inițializare pagină...');
@@ -1005,6 +1083,15 @@ async function initPage() {
     periodSelector.value = 'today';
     currentPeriod = 'today';
     
+    // Testăm URL-urile înainte de a încerca să preluăm datele
+    const urlTests = await testSheetUrls();
+    const allUrlsOk = Object.values(urlTests).every(result => result.ok);
+    
+    if (!allUrlsOk) {
+        console.error("Unele URL-uri nu sunt accesibile. Verificați conexiunea și URL-urile.");
+        document.getElementById('error-container').style.display = 'block';
+    }
+    
     // Preluăm datele pentru toți stupii
     console.log("Preluare date pentru toți stupii...");
     try {
@@ -1014,7 +1101,8 @@ async function initPage() {
         if (Object.keys(sheetsData).length === 0) {
             console.error("Nu s-au putut prelua datele pentru niciun stup");
             document.getElementById('table-body').innerHTML = 
-                '<tr><td colspan="8" class="loading-message">Eroare: Nu s-au putut prelua datele pentru niciun stup</td></tr>';
+                '<tr><td colspan="8" class="loading-message">Eroare: Nu s-au putut prelua datele pentru niciun stup după mai multe încercări</td></tr>';
+            document.getElementById('error-container').style.display = 'block';
             return;
         }
         
