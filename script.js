@@ -4,19 +4,10 @@
 // Selectați opțiunea "Foaie de calcul" și formatul "Valori separate prin virgule (.csv)"
 // Copiați link-ul generat și înlocuiți URL-urile de mai jos
 
-// URL-uri pentru fiecare foaie
 const SHEET_URLS = {
-    // Folosim URL-uri directe către fișierele CSV publicate
-    'foaie1': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?gid=0&single=true&output=csv',
-    'foaie2': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE4-_BmtoGvaWD5I_lI0GG-OavL6mTa18wn_ON87Tvw-B1FoGWhBGI1Q-JHjU5pCVIEiYu09ii6bNB/pub?gid=0&single=true&output=csv',
-    'foaie3': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTikN6b-AGCvrkBB8PM3TG4bc4_lBbe6BeP4NbJqK7lw2apxORR3x77QJlRAIIj6edAARg8PRWqvjRq/pub?gid=0&single=true&output=csv'
-};
-
-// Mapare între ID-uri de foi și ID-uri de spreadsheet pentru API-ul JSON
-const SHEET_IDS = {
-    'foaie1': '1w0Q6K4jO4Fko0-i7LTwQdxcOnbJ7U-ZvQkK_TeF_sxg',
-    'foaie2': '1w0Q6K4jO4Fko0-i7LTwQdxcOnbJ7U-ZvQkK_TeF_sxg',
-    'foaie3': '1w0Q6K4jO4Fko0-i7LTwQdxcOnbJ7U-ZvQkK_TeF_sxg'
+    'foaie1': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQnbQPo-Mr3dghu2nMDTAPmI_gecKNthE8YrD-Gss9LcIc6D4rCGVp_ZQI5PfoA-ELmYyCTADZFzrKL/pub?output=csv',
+    'foaie2': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRE4-_BmtoGvaWD5I_lI0GG-OavL6mTa18wn_ON87Tvw-B1FoGWhBGI1Q-JHjU5pCVIEiYu09ii6bNB/pub?output=csv',
+    'foaie3': 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTikN6b-AGCvrkBB8PM3TG4bc4_lBbe6BeP4NbJqK7lw2apxORR3x77QJlRAIIj6edAARg8PRWqvjRq/pub?output=csv'
 };
 
 // URL-ul implicit (prima foaie)
@@ -92,343 +83,116 @@ function cleanupOldChartElements() {
     }
 }
 
-// Funcția pentru a încerca din nou preluarea datelor cu întârziere
-async function retryFetchWithDelay(sheetName, retries = 2, delay = 3000) {
-    console.log(`Încercare de recuperare date pentru ${sheetName}, încercări rămase: ${retries}`);
-    
-    // Afișăm mesaj de încercare în tabel
-    document.getElementById('table-body').innerHTML = 
-        `<tr><td colspan="8" class="loading-message">Se încearcă din nou preluarea datelor... (${retries} încercări rămase)</td></tr>`;
-    
-    // Așteptăm perioada de delay
-    await new Promise(resolve => setTimeout(resolve, delay));
-    
+// Funcția pentru a prelua datele din Google Sheets (format CSV)
+async function fetchSheetData(sheetName = currentSheet) {
     try {
-        // Încercăm din nou preluarea datelor
-        const data = await fetchSheetData(sheetName);
-        if (data) {
-            console.log(`Recuperare reușită pentru ${sheetName} după reîncercare`);
-            return data;
-        } else if (retries > 1) {
-            // Dacă încă nu avem date dar mai avem încercări, reîncercăm
-            return retryFetchWithDelay(sheetName, retries - 1, delay);
-        } else {
-            console.error(`Toate încercările de recuperare pentru ${sheetName} au eșuat`);
+        if (!SHEET_URLS[sheetName]) {
+            console.error(`Foaia "${sheetName}" nu există.`);
             return null;
         }
-    } catch (error) {
-        console.error(`Eroare la reîncercarea preluării datelor pentru ${sheetName}:`, error);
-        if (retries > 1) {
-            return retryFetchWithDelay(sheetName, retries - 1, delay);
+        
+        console.log(`Începe preluarea datelor pentru foaia ${sheetName} de la URL:`, SHEET_URLS[sheetName]);
+        
+        const response = await fetch(SHEET_URLS[sheetName]);
+        
+        // Verificăm statusul HTTP
+        if (!response.ok) {
+            console.error(`Eroare HTTP la preluarea datelor pentru foaia ${sheetName}: ${response.status} ${response.statusText}`);
+            document.getElementById('table-body').innerHTML = 
+                `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: HTTP ${response.status}</td></tr>`;
+            return null;
         }
-        return null;
-    }
-}
-
-// Funcția pentru a prelua datele din Google Sheets direct
-async function fetchSheetData(sheetName = currentSheet) {
-    return new Promise((resolve, reject) => {
-        try {
-            if (!SHEET_URLS[sheetName]) {
-                console.error(`Foaia "${sheetName}" nu există.`);
-                document.getElementById('table-body').innerHTML = 
-                    `<tr><td colspan="8" class="loading-message">Eroare: Foaia "${sheetName}" nu există</td></tr>`;
-                document.getElementById('error-container').style.display = 'block';
-                reject(`Foaia "${sheetName}" nu există`);
-                return;
+        
+        const text = await response.text();
+        
+        console.log(`S-au primit ${text.length} caractere pentru foaia ${sheetName}`);
+        
+        // Verificăm dacă am primit un text gol sau prea scurt (posibilă eroare)
+        if (!text || text.length < 10) {
+            console.error(`Răspuns prea scurt sau gol pentru foaia ${sheetName}: "${text}"`);
+            document.getElementById('table-body').innerHTML = 
+                `<tr><td colspan="8" class="loading-message">Eroare: Răspuns gol sau invalid de la Google Sheets</td></tr>`;
+            return null;
+        }
+        
+        // Parsare CSV
+        const rows = text.split('\n').map(row => {
+            // Gestionare corectă a virgulelor din CSV
+            const values = [];
+            let inQuotes = false;
+            let currentValue = '';
+            
+            for (let i = 0; i < row.length; i++) {
+                const char = row[i];
+                
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(currentValue.trim());
+                    currentValue = '';
+                } else {
+                    currentValue += char;
+                }
             }
             
-            console.log(`Începe preluarea datelor pentru foaia ${sheetName} de la URL:`, SHEET_URLS[sheetName]);
-            
-            // Încercăm mai întâi metoda directă prin fetch
-            const fetchDirectly = async () => {
-                try {
-                    console.log(`Încercare preluare directă pentru foaia ${sheetName} de la URL:`, SHEET_URLS[sheetName]);
-                    
-                    const response = await fetch(SHEET_URLS[sheetName]);
-                    if (!response.ok) {
-                        throw new Error(`Eroare HTTP: ${response.status}`);
-                    }
-                    
-                    const text = await response.text();
-                    console.log(`S-au primit ${text.length} caractere pentru foaia ${sheetName}`);
-                    
-                    // Verificăm dacă am primit un text gol sau prea scurt
-                    if (!text || text.length < 10) {
-                        throw new Error('Răspuns prea scurt sau gol');
-                    }
-                    
-                    // Parsare CSV
-                    const rows = text.split('\n').map(row => {
-                        // Gestionare corectă a virgulelor din CSV
-                        const values = [];
-                        let inQuotes = false;
-                        let currentValue = '';
-                        
-                        for (let i = 0; i < row.length; i++) {
-                            const char = row[i];
-                            
-                            if (char === '"') {
-                                inQuotes = !inQuotes;
-                            } else if (char === ',' && !inQuotes) {
-                                values.push(currentValue.trim());
-                                currentValue = '';
-                            } else {
-                                currentValue += char;
-                            }
-                        }
-                        
-                        // Adăugare ultimă valoare
-                        values.push(currentValue.trim());
-                        return values;
-                    });
-                    
-                    console.log(`Foaia ${sheetName}: s-au parsat ${rows.length} rânduri`);
-                    
-                    // Verificăm dacă avem rânduri valide
-                    if (rows.length < 2) {
-                        throw new Error('Prea puține rânduri');
-                    }
-                    
-                    // Prima linie conține anteturile
-                    const headers = rows[0];
-                    // Restul sunt date
-                    const dataRows = rows.slice(1);
-                    
-                    // Verificăm dacă antetele sunt valide
-                    if (headers.length < 5) {
-                        throw new Error('Antete insuficiente');
-                    }
-                    
-                    // Procesare date pentru a adăuga obiecte Date JavaScript
-                    const processedRows = dataRows.map(row => {
-                        const processedRow = [...row];  // copiem rândul
-                        try {
-                            // Convertim string-ul de dată în obiect Date
-                            processedRow.dateObj = new Date(row[0]);
-                        } catch (e) {
-                            // Dacă nu putem converti, folosim data curentă
-                            processedRow.dateObj = new Date();
-                            console.error('Eroare la conversie dată:', e, row[0]);
-                        }
-                        return processedRow;
-                    });
-                    
-                    // Sortăm datele după dată (cele mai vechi primele)
-                    processedRows.sort((a, b) => a.dateObj - b.dateObj);
-                    
-                    // Stocăm datele în obiectul global
-                    sheetsData[sheetName] = processedRows;
-                    
-                    console.log(`Date salvate pentru foaia ${sheetName}: ${processedRows.length} rânduri`);
-                    
-                    // Ascundem containerul de eroare dacă era afișat
-                    document.getElementById('error-container').style.display = 'none';
-                    
-                    // Returnăm datele procesate
-                    return processedRows;
-                } catch (error) {
-                    console.error(`Eroare la preluarea directă pentru foaia ${sheetName}:`, error);
-                    // Nu afișăm eroarea aici, încercăm metoda JSONP
-                    throw error;
-                }
-            };
-            
-            // Încercăm mai întâi metoda directă
-            fetchDirectly()
-                .then(data => {
-                    resolve(data);
-                })
-                .catch(error => {
-                    console.log(`Preluare directă eșuată pentru foaia ${sheetName}, încercăm metoda JSONP:`, error);
-                    
-                    // Dacă metoda directă eșuează, încercăm metoda JSONP
-                    // Folosim un script pentru a încărca datele și a evita problemele CORS
-                    const scriptId = 'google-sheet-script';
-                    let script = document.getElementById(scriptId);
-                    
-                    // Ștergem scriptul anterior dacă există
-                    if (script) {
-                        document.head.removeChild(script);
-                    }
-                    
-                    // Creăm un callback global pentru a primi datele
-                    const callbackName = 'googleSheetCallback_' + Date.now();
-                    window[callbackName] = function(data) {
-                        // Curățăm callback-ul după utilizare
-                        delete window[callbackName];
-                        
-                        console.log(`S-au primit date pentru foaia ${sheetName} prin JSONP`);
-                        
-                        // Verificăm dacă am primit date valide
-                        if (!data || !data.feed || !data.feed.entry || data.feed.entry.length === 0) {
-                            console.error(`Date invalide primite pentru foaia ${sheetName}`);
-                            document.getElementById('table-body').innerHTML = 
-                                `<tr><td colspan="8" class="loading-message">Eroare: Date invalide primite de la Google Sheets</td></tr>`;
-                            document.getElementById('error-container').style.display = 'block';
-                            reject('Date invalide primite');
-                            return;
-                        }
-                        
-                        // Procesăm datele primite în format JSON
-                        const entries = data.feed.entry;
-                        const rows = [];
-                        let currentRow = [];
-                        let lastRow = 1;
-                        
-                        // Extragem anteturile (prima linie)
-                        const headers = [];
-                        for (let i = 0; i < entries.length; i++) {
-                            const entry = entries[i];
-                            const cellAddress = entry.gs$cell;
-                            
-                            if (cellAddress.row === '1') {
-                                headers.push(entry.content.$t);
-                            }
-                        }
-                        rows.push(headers);
-                        
-                        // Extragem restul datelor
-                        for (let i = 0; i < entries.length; i++) {
-                            const entry = entries[i];
-                            const cellAddress = entry.gs$cell;
-                            const rowNum = parseInt(cellAddress.row);
-                            
-                            if (rowNum === 1) {
-                                // Am procesat deja anteturile
-                                continue;
-                            }
-                            
-                            // Dacă am trecut la un nou rând
-                            if (rowNum !== lastRow) {
-                                if (currentRow.length > 0) {
-                                    rows.push(currentRow);
-                                }
-                                currentRow = [];
-                                lastRow = rowNum;
-                            }
-                            
-                            currentRow.push(entry.content.$t);
-                        }
-                        
-                        // Adăugăm ultimul rând
-                        if (currentRow.length > 0) {
-                            rows.push(currentRow);
-                        }
-                        
-                        console.log(`Foaia ${sheetName}: s-au parsat ${rows.length} rânduri`);
-                        
-                        // Verificăm dacă avem rânduri valide
-                        if (rows.length < 2) {  // cel puțin antete + un rând de date
-                            console.error(`Prea puține rânduri pentru foaia ${sheetName}: ${rows.length}`);
-                            document.getElementById('table-body').innerHTML = 
-                                `<tr><td colspan="8" class="loading-message">Eroare: Date insuficiente sau format invalid</td></tr>`;
-                            document.getElementById('error-container').style.display = 'block';
-                            reject(`Prea puține rânduri pentru foaia ${sheetName}: ${rows.length}`);
-                            return;
-                        }
-                        
-                        // Prima linie conține anteturile
-                        const headerRow = rows[0];
-                        // Restul sunt date
-                        const dataRows = rows.slice(1);
-                        
-                        // Verificăm dacă antetele sunt valide
-                        if (headerRow.length < 5) {
-                            console.error(`Antete insuficiente pentru foaia ${sheetName}: ${headerRow.join(', ')}`);
-                            document.getElementById('table-body').innerHTML = 
-                                `<tr><td colspan="8" class="loading-message">Eroare: Format invalid al datelor</td></tr>`;
-                            document.getElementById('error-container').style.display = 'block';
-                            reject(`Antete insuficiente pentru foaia ${sheetName}: ${headerRow.join(', ')}`);
-                            return;
-                        }
-                        
-                        // Procesare date pentru a adăuga obiecte Date JavaScript
-                        const processedRows = dataRows.map(row => {
-                            const processedRow = [...row];  // copiem rândul
-                            try {
-                                // Convertim string-ul de dată în obiect Date
-                                processedRow.dateObj = new Date(row[0]);
-                            } catch (e) {
-                                // Dacă nu putem converti, folosim data curentă
-                                processedRow.dateObj = new Date();
-                                console.error('Eroare la conversie dată:', e, row[0]);
-                            }
-                            return processedRow;
-                        });
-                        
-                        // Sortăm datele după dată (cele mai vechi primele)
-                        processedRows.sort((a, b) => a.dateObj - b.dateObj);
-                        
-                        // Stocăm datele în obiectul global
-                        sheetsData[sheetName] = processedRows;
-                        
-                        console.log(`Date salvate pentru foaia ${sheetName}: ${processedRows.length} rânduri`);
-                        
-                        // Ascundem containerul de eroare dacă era afișat
-                        document.getElementById('error-container').style.display = 'none';
-                        
-                        // Returnăm datele procesate
-                        resolve(processedRows);
-                    };
-                    
-                    // Creăm un nou script pentru a încărca datele
-                    script = document.createElement('script');
-                    script.id = scriptId;
-                    
-                    // Folosim API-ul JSON pentru a obține datele (evită CORS)
-                    // Obținem ID-ul spreadsheet-ului din mapare
-                    const sheetId = SHEET_IDS[sheetName];
-                    
-                    if (!sheetId) {
-                        console.error(`Nu există ID de spreadsheet pentru foaia ${sheetName}`);
-                        document.getElementById('table-body').innerHTML = 
-                            `<tr><td colspan="8" class="loading-message">Eroare: Nu există ID de spreadsheet pentru foaia ${sheetName}</td></tr>`;
-                        document.getElementById('error-container').style.display = 'block';
-                        reject(`Nu există ID de spreadsheet pentru foaia ${sheetName}`);
-                        return;
-                    }
-                    
-                    // Construim URL-ul pentru API-ul JSON
-                    // Folosim 1 pentru prima foaie, 2 pentru a doua, etc.
-                    const sheetNumber = sheetName === 'foaie1' ? 1 : (sheetName === 'foaie2' ? 2 : 3);
-                    script.src = `https://spreadsheets.google.com/feeds/cells/${sheetId}/${sheetNumber}/public/values?alt=json-in-script&callback=${callbackName}`;
-                    
-                    console.log(`Încărcare script pentru foaia ${sheetName} de la URL: ${script.src}`);
-                    
-                    // Adăugăm un handler pentru erori
-                    script.onerror = function() {
-                        console.error(`Eroare la încărcarea scriptului pentru foaia ${sheetName}`);
-                        document.getElementById('table-body').innerHTML = 
-                            `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: Nu s-a putut accesa Google Sheets</td></tr>`;
-                        document.getElementById('error-container').style.display = 'block';
-                        reject('Eroare la încărcarea scriptului');
-                    };
-                    
-                    // Adăugăm scriptul în document
-                    document.head.appendChild(script);
-                    
-                    // Setăm un timeout pentru a evita blocarea în cazul în care callback-ul nu este apelat
-                    setTimeout(() => {
-                        if (window[callbackName]) {
-                            delete window[callbackName];
-                            console.error(`Timeout la preluarea datelor pentru foaia ${sheetName}`);
-                            document.getElementById('table-body').innerHTML = 
-                                `<tr><td colspan="8" class="loading-message">Eroare: Timeout la preluarea datelor</td></tr>`;
-                            document.getElementById('error-container').style.display = 'block';
-                            reject('Timeout la preluarea datelor');
-                        }
-                    }, 10000); // 10 secunde timeout
-                    
-                });
-        } catch (error) {
-            console.error(`Eroare la preluarea datelor pentru foaia ${sheetName}:`, error);
+            // Adăugare ultimă valoare
+            values.push(currentValue.trim());
+            return values;
+        });
+        
+        console.log(`Foaia ${sheetName}: s-au parsat ${rows.length} rânduri`);
+        
+        // Verificăm dacă avem rânduri valide
+        if (rows.length < 2) {  // cel puțin antete + un rând de date
+            console.error(`Prea puține rânduri pentru foaia ${sheetName}: ${rows.length}`);
             document.getElementById('table-body').innerHTML = 
-                `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: ${error.message}</td></tr>`;
-            document.getElementById('error-container').style.display = 'block';
-            reject(error);
+                `<tr><td colspan="8" class="loading-message">Eroare: Date insuficiente sau format invalid</td></tr>`;
+            return null;
         }
-    });
+        
+        // Prima linie conține anteturile
+        const headers = rows[0];
+        // Restul sunt date
+        const dataRows = rows.slice(1);
+        
+        // Verificăm dacă antetele sunt valide
+        if (headers.length < 5) {
+            console.error(`Antete insuficiente pentru foaia ${sheetName}: ${headers.join(', ')}`);
+            document.getElementById('table-body').innerHTML = 
+                `<tr><td colspan="8" class="loading-message">Eroare: Format invalid al datelor</td></tr>`;
+            return null;
+        }
+        
+        // Procesare date pentru a adăuga obiecte Date JavaScript
+        const processedRows = dataRows.map(row => {
+            const processedRow = [...row];  // copiem rândul
+            try {
+                // Convertim string-ul de dată în obiect Date
+                processedRow.dateObj = new Date(row[0]);
+            } catch (e) {
+                // Dacă nu putem converti, folosim data curentă
+                processedRow.dateObj = new Date();
+                console.error('Eroare la conversie dată:', e, row[0]);
+            }
+            return processedRow;
+        });
+        
+        // Sortăm datele după dată (cele mai vechi primele)
+        processedRows.sort((a, b) => a.dateObj - b.dateObj);
+        
+        // Stocăm datele în obiectul global
+        sheetsData[sheetName] = processedRows;
+        
+        console.log(`Date salvate pentru foaia ${sheetName}: ${processedRows.length} rânduri`);
+        
+        // Returnăm datele procesate
+        return processedRows;
+    } catch (error) {
+        console.error(`Eroare la preluarea datelor pentru foaia ${sheetName}:`, error);
+        document.getElementById('table-body').innerHTML = 
+            `<tr><td colspan="8" class="loading-message">Eroare la încărcarea datelor: ${error.message}</td></tr>`;
+        return null;
+    }
 }
 
 // Funcția pentru a prelua date de la toate foile
@@ -443,13 +207,12 @@ async function fetchAllSheets() {
     const fetchPromises = allSheets.map(sheet => {
         return fetchSheetData(sheet).catch(err => {
             console.error(`Eroare la preluarea datelor pentru foaia ${sheet}:`, err);
-            // Încercăm din nou preluarea datelor pentru această foaie
-            return retryFetchWithDelay(sheet);
+            return null;
         });
     });
     
     // Așteptăm toate promisiunile să se finalizeze
-    const results = await Promise.all(fetchPromises);
+    await Promise.all(fetchPromises);
     
     // Verificăm câte foi au fost încărcate cu succes
     const loadedSheets = Object.keys(sheetsData);
@@ -466,13 +229,8 @@ async function fetchAllSheets() {
         console.error('Nu s-a putut încărca nicio foaie!');
         document.getElementById('table-body').innerHTML = 
             '<tr><td colspan="8" class="loading-message">Eroare: Nu s-a putut încărca nicio foaie de date</td></tr>';
-        // Afișăm containerul de eroare
-        document.getElementById('error-container').style.display = 'block';
         return false;
     }
-    
-    // Ascundem containerul de eroare dacă era afișat, deoarece cel puțin o foaie s-a încărcat
-    document.getElementById('error-container').style.display = 'none';
     
     return true;
 }
@@ -608,13 +366,6 @@ function getTotalPages() {
 
 // Funcția pentru a merge la prima pagină
 function goToFirstPage() {
-    const firstPageLink = document.getElementById('first-page');
-    // Verificăm dacă butonul este dezactivat
-    if (firstPageLink.disabled || firstPageLink.classList.contains('disabled')) {
-        console.log("Navigare la prima pagină: buton dezactivat");
-        return false;
-    }
-    
     console.log("Navigare la prima pagină");
     if (currentPage !== 1) {
         currentPage = 1;
@@ -625,13 +376,6 @@ function goToFirstPage() {
 
 // Funcția pentru a merge la pagina anterioară
 function goToPrevPage() {
-    const prevPageLink = document.getElementById('prev-page');
-    // Verificăm dacă butonul este dezactivat
-    if (prevPageLink.disabled || prevPageLink.classList.contains('disabled')) {
-        console.log("Navigare la pagina anterioară: buton dezactivat");
-        return false;
-    }
-    
     console.log("Navigare la pagina anterioară");
     if (currentPage > 1) {
         currentPage--;
@@ -642,13 +386,6 @@ function goToPrevPage() {
 
 // Funcția pentru a merge la pagina următoare
 function goToNextPage() {
-    const nextPageLink = document.getElementById('next-page');
-    // Verificăm dacă butonul este dezactivat
-    if (nextPageLink.disabled || nextPageLink.classList.contains('disabled')) {
-        console.log("Navigare la pagina următoare: buton dezactivat");
-        return false;
-    }
-    
     console.log("Navigare la pagina următoare");
     const totalPages = getTotalPages();
     if (currentPage < totalPages) {
@@ -660,13 +397,6 @@ function goToNextPage() {
 
 // Funcția pentru a merge la ultima pagină
 function goToLastPage() {
-    const lastPageLink = document.getElementById('last-page');
-    // Verificăm dacă butonul este dezactivat
-    if (lastPageLink.disabled || lastPageLink.classList.contains('disabled')) {
-        console.log("Navigare la ultima pagină: buton dezactivat");
-        return false;
-    }
-    
     console.log("Navigare la ultima pagină");
     const totalPages = getTotalPages();
     if (currentPage !== totalPages) {
@@ -708,18 +438,10 @@ function updatePaginationControls() {
     firstPageLink.classList.toggle('disabled', isFirstPage);
     prevPageLink.classList.toggle('disabled', isFirstPage);
     
-    // Actualizăm atributul disabled pentru prima pagină și pagina anterioară
-    firstPageLink.disabled = isFirstPage;
-    prevPageLink.disabled = isFirstPage;
-    
     // Următoarea și Ultima sunt dezactivate la ultima pagină
     const isLastPage = currentPage >= totalPages;
     nextPageLink.classList.toggle('disabled', isLastPage);
     lastPageLink.classList.toggle('disabled', isLastPage);
-    
-    // Actualizăm atributul disabled pentru pagina următoare și ultima pagină
-    nextPageLink.disabled = isLastPage;
-    lastPageLink.disabled = isLastPage;
     
     console.log(`Paginare: Pagina ${currentPage}/${totalPages}, Elemente/pagină: ${itemsPerPage}`);
 }
@@ -849,13 +571,11 @@ function updateTable(data, period = 'all') {
         // Actualizăm textul de paginare
         document.getElementById('pagination-text').textContent = 'Pagina 0 din 0';
         
-        // Dezactivăm toate link-urile de paginare folosind atât clasa cât și atributul disabled
-        const paginationLinks = ['first-page', 'prev-page', 'next-page', 'last-page'];
-        paginationLinks.forEach(id => {
-            const link = document.getElementById(id);
-            link.classList.add('disabled');
-            link.disabled = true;
-        });
+        // Dezactivăm toate link-urile de paginare
+        document.getElementById('first-page').classList.add('disabled');
+        document.getElementById('prev-page').classList.add('disabled');
+        document.getElementById('next-page').classList.add('disabled');
+        document.getElementById('last-page').classList.add('disabled');
         
         return;
     }
@@ -1228,37 +948,6 @@ function formatDateForInput(date) {
     return `${year}-${month}-${day}`;
 }
 
-// Funcție pentru a testa accesibilitatea URL-urilor
-async function testSheetUrls() {
-    console.log('Testare accesibilitate URL-uri...');
-    const results = {};
-    
-    for (const [sheetName, url] of Object.entries(SHEET_URLS)) {
-        try {
-            console.log(`Testare URL pentru ${sheetName}: ${url}`);
-            const response = await fetch(url, { method: 'HEAD' });
-            
-            results[sheetName] = {
-                status: response.status,
-                ok: response.ok,
-                statusText: response.statusText
-            };
-            
-            console.log(`Rezultat test pentru ${sheetName}: ${response.status} ${response.statusText}`);
-        } catch (error) {
-            console.error(`Eroare la testarea URL-ului pentru ${sheetName}:`, error);
-            results[sheetName] = {
-                status: 0,
-                ok: false,
-                statusText: error.message
-            };
-        }
-    }
-    
-    console.log('Rezultate teste URL-uri:', results);
-    return results;
-}
-
 // Inițializarea paginii
 async function initPage() {
     console.log('Inițializare pagină...');
@@ -1278,15 +967,6 @@ async function initPage() {
     periodSelector.value = 'today';
     currentPeriod = 'today';
     
-    // Testăm URL-urile înainte de a încerca să preluăm datele
-    const urlTests = await testSheetUrls();
-    const allUrlsOk = Object.values(urlTests).every(result => result.ok);
-    
-    if (!allUrlsOk) {
-        console.error("Unele URL-uri nu sunt accesibile. Verificați conexiunea și URL-urile.");
-        document.getElementById('error-container').style.display = 'block';
-    }
-    
     // Preluăm datele pentru toți stupii
     console.log("Preluare date pentru toți stupii...");
     try {
@@ -1296,8 +976,7 @@ async function initPage() {
         if (Object.keys(sheetsData).length === 0) {
             console.error("Nu s-au putut prelua datele pentru niciun stup");
             document.getElementById('table-body').innerHTML = 
-                '<tr><td colspan="8" class="loading-message">Eroare: Nu s-au putut prelua datele pentru niciun stup după mai multe încercări</td></tr>';
-            document.getElementById('error-container').style.display = 'block';
+                '<tr><td colspan="8" class="loading-message">Eroare: Nu s-au putut prelua datele pentru niciun stup</td></tr>';
             return;
         }
         
