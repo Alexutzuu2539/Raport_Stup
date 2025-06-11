@@ -265,28 +265,64 @@ async function fetchCSV(url, sheetKey) {
 }
 
 // Funcție simplă pentru parsarea CSV
-function parseCSV(csvText) {
-    // Implementați aici logica de parsare CSV
-    // Acest exemplu este simplificat, ar trebui să gestionați cazuri speciale
-    const lines = csvText.split('\n');
-    const headers = lines[0].split(',').map(header => header.trim());
-    
-    const results = [];
-    
-    for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
+function parseCSV(csvText, sheetKey) {
+    try {
+        // Împărțim textul CSV în linii
+        const lines = csvText.split('\n');
+        if (lines.length === 0) {
+            console.error("CSV gol pentru foaia", sheetKey);
+            return [];
+        }
         
-        const values = lines[i].split(',');
-        const entry = {};
+        // Extragem anteturile (prima linie)
+        const headers = lines[0].split(',').map(header => header.trim());
         
-        headers.forEach((header, index) => {
-            entry[header] = values[index] ? values[index].trim() : '';
-        });
+        // Verificăm dacă avem anteturi valide
+        if (headers.length === 0) {
+            console.error("Anteturi CSV invalide pentru foaia", sheetKey);
+            return [];
+        }
         
-        results.push(entry);
+        const results = [];
+        
+        // Parcurgem restul liniilor pentru a extrage datele
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue; // Sărim peste linii goale
+            
+            const values = lines[i].split(',');
+            if (values.length !== headers.length) {
+                console.warn(`Linia ${i} din foaia ${sheetKey} are un număr diferit de valori față de anteturi: ${values.length} vs ${headers.length}`);
+                continue; // Sărim peste linii cu număr greșit de valori
+            }
+            
+            const entry = {};
+            
+            // Mapăm valorile la cheile corespunzătoare
+            headers.forEach((header, index) => {
+                entry[header] = values[index] ? values[index].trim() : '';
+            });
+            
+            // Adăugăm și câmpuri calculate pentru compatibilitate
+            
+            // Adăugăm data ca obiect Date pentru filtrare
+            try {
+                entry.dateObj = new Date(entry.date || entry.Data || entry.Dată);
+            } catch (e) {
+                console.warn(`Eroare la parsarea datei pentru linia ${i} din foaia ${sheetKey}:`, e);
+                entry.dateObj = new Date(); // Folosim data curentă ca fallback
+            }
+            
+            // Adăugăm sursa datelor
+            entry.source = sheetKey;
+            
+            results.push(entry);
+        }
+        
+        return results;
+    } catch (error) {
+        console.error(`Eroare la parsarea CSV pentru foaia ${sheetKey}:`, error);
+        return [];
     }
-    
-    return results;
 }
 
 // Funcție pentru a afișa erori în UI
@@ -1584,6 +1620,81 @@ async function fetchCSVViaProxy(url, sheetKey) {
     }
 }
 
+// Funcție pentru a încărca un CSV prin JSONP
+async function fetchCSVViaJSONP(url, sheetKey) {
+    return new Promise((resolve, reject) => {
+        console.log(`Încercare preluare JSONP pentru foaia ${sheetKey}`);
+        
+        // Creăm un element script pentru cererea JSONP
+        const script = document.createElement('script');
+        
+        // Generăm un nume unic pentru funcția callback
+        const callbackName = `jsonp_callback_${Date.now()}_${Math.round(Math.random() * 1000000)}`;
+        
+        // Definim funcția callback globală
+        window[callbackName] = function(data) {
+            // Curățăm după ce am primit răspunsul
+            document.body.removeChild(script);
+            delete window[callbackName];
+            
+            // Rezolvăm promisiunea cu datele primite
+            resolve({
+                key: sheetKey,
+                data: data
+            });
+        };
+        
+        // Adăugăm gestionarea erorilor
+        script.onerror = function() {
+            // Curățăm în caz de eroare
+            document.body.removeChild(script);
+            delete window[callbackName];
+            
+            // Respingem promisiunea
+            reject(new Error(`Eroare la încărcarea scriptului JSONP pentru foaia ${sheetKey}`));
+        };
+        
+        // Setăm URL-ul cu parametrul callback
+        // Notă: Aceasta este doar o simulare, în realitate serverul trebuie să suporte JSONP
+        script.src = `${url}&callback=${callbackName}`;
+        
+        // Adăugăm scriptul la document pentru a iniția cererea
+        document.body.appendChild(script);
+    });
+}
+
+// Funcție pentru a încărca un fișier CSV prin proxy pentru a evita CORS
+async function fetchCSVViaProxy(url, sheetKey) {
+    try {
+        // În loc să accesăm direct URL-ul Google Sheets, folosim un proxy CORS
+        // Opțiunea 1: Folosim CORS Anywhere (pentru testare)
+        // const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        
+        // Opțiunea 2: Folosim AllOrigins (mai fiabil)
+        const proxyUrl = 'https://api.allorigins.win/raw?url=';
+        
+        // Opțiunea 3: Folosim Web App-ul nostru ca proxy
+        // const proxyUrl = `${webAppUrl}?proxy=true&url=`;
+        
+        const encodedUrl = encodeURIComponent(url);
+        const proxiedUrl = proxyUrl + encodedUrl;
+        
+        console.log(`Încercăm să accesăm ${sheetKey} prin proxy: ${proxiedUrl}`);
+        
+        const response = await fetch(proxiedUrl);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const csvText = await response.text();
+        return parseCSV(csvText, sheetKey);
+    } catch (error) {
+        console.error(`Eroare la încărcarea foii ${sheetKey} prin proxy:`, error);
+        return null;
+    }
+}
+
 // Funcție pentru a încerca toate metodele disponibile pentru a încărca un CSV
 async function fetchSheetDataWithFallback(url, sheetKey) {
     try {
@@ -1646,7 +1757,7 @@ function generateTestData(sheetKey) {
         let totalHarvest = 0;
         for (let j = data.length - 1; j >= 0; j--) {
             if (data[j].dailyHarvest > 0) {
-                totalHarvest += data[j].dailyHarvest;
+                totalHarvest += parseFloat(data[j].dailyHarvest);
             }
         }
         totalHarvest += dailyHarvest > 0 ? dailyHarvest : 0;
@@ -1668,4 +1779,37 @@ function generateTestData(sheetKey) {
         key: sheetKey,
         data: data
     };
+}
+
+// Funcție pentru preluarea directă a datelor CSV
+async function fetchDirectly(url, sheetKey) {
+    try {
+        console.log(`Încercare preluare directă pentru foaia ${sheetKey} de la URL: ${url}`);
+        
+        // Adăugăm un timestamp pentru a evita cache-ul
+        const timestampedUrl = `${url}${url.includes('?') ? '&' : '?'}timestamp=${Date.now()}`;
+        
+        // Eliminăm headerele care cauzează eroarea CORS
+        const response = await fetch(timestampedUrl, {
+            method: 'GET',
+            // Nu mai setăm headere personalizate care ar putea cauza erori CORS
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const csvText = await response.text();
+        
+        // Parsăm CSV-ul și returnăm datele
+        const parsedData = parseCSV(csvText, sheetKey);
+        
+        return {
+            key: sheetKey,
+            data: parsedData
+        };
+    } catch (error) {
+        console.error(`Eroare la preluarea directă pentru foaia ${sheetKey}:`, error);
+        throw error;
+    }
 } 
