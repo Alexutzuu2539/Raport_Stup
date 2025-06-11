@@ -7,15 +7,15 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>Monitorizare Stupină</title>
-    <link rel="stylesheet" href="styles.css?v=1.9">
+    <link rel="stylesheet" href="styles.css?v=2.8">
     <script>
         // Forță reload cu parametru de versiune pentru a evita cache-ul
         (function() {
             const currentUrl = window.location.href;
-            if (currentUrl.indexOf('v=1.9') === -1) {
+            if (currentUrl.indexOf('v=2.8') === -1) {
                 const newUrl = currentUrl.indexOf('?') === -1 
-                    ? currentUrl + '?v=1.9' 
-                    : currentUrl + '&v=1.9';
+                    ? currentUrl + '?v=2.8' 
+                    : currentUrl + '&v=2.8';
                 window.location.href = newUrl;
             }
         })();
@@ -29,10 +29,18 @@
             <ul>
                 <li>URL-urile de publicare au expirat sau s-au schimbat</li>
                 <li>Nu există conexiune la internet</li>
-                <li>Serverul nu răspunde sau se executa lucrari de mentenanta</li>
-                
+                <li>Serverul Google Sheets nu răspunde sau se execută lucrări de mentenanță</li>
+                <li>Foile de calcul nu mai sunt publicate sau au fost șterse</li>
             </ul>
-            <p>Soluție: Verificați URL-urile în fișierul script.js și actualizați-le conform instrucțiunilor din comentarii.</p>
+            <p>Soluții:</p>
+            <ul>
+                <li>Verificați conexiunea la internet</li>
+                <li>Asigurați-vă că foile Google Sheets sunt publicate corect (Fișier > Publicare pe web)</li>
+                <li>Selectați formatul "Valori separate prin virgule (.csv)" pentru fiecare foaie</li>
+                <li>Actualizați URL-urile în fișierul script.js cu noile link-uri generate</li>
+            </ul>
+            <p id="error-details" style="font-family: monospace; margin-top: 10px; white-space: pre-wrap;"></p>
+            <button id="debug-btn" class="debug-button">Testează Conexiunea</button>
         </div>
         
         <div id="current-datetime" class="current-datetime">
@@ -165,8 +173,8 @@
                         </select>
                     </div>
                     <div class="pagination-controls">
-                        <a href="javascript:void(0)" class="page-link" id="first-page" onclick="return goToFirstPage()">&laquo; Prima</a>
-                        <a href="javascript:void(0)" class="page-link" id="prev-page" onclick="return goToPrevPage()">&lsaquo; Anterioară</a>
+                        <a href="javascript:void(0)" class="page-link" id="first-page" onclick="return goToFirstPage()" disabled>&laquo; Prima</a>
+                        <a href="javascript:void(0)" class="page-link" id="prev-page" onclick="return goToPrevPage()" disabled>&lsaquo; Anterioară</a>
                         <a href="javascript:void(0)" class="page-link" id="next-page" onclick="return goToNextPage()">Următoarea &rsaquo;</a>
                         <a href="javascript:void(0)" class="page-link" id="last-page" onclick="return goToLastPage()">Ultima &raquo;</a>
                     </div>
@@ -187,6 +195,6 @@
         </footer>
     </div>
     
-    <script src="script.js?v=1.9"></script>
+    <script src="script.js?v=2.8"></script>
 </body>
 </html> 
