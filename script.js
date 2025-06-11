@@ -99,9 +99,9 @@ const SHEET_URLS = {
 
 // Mapare între ID-uri de foi și ID-uri de spreadsheet pentru API-ul JSON
 const SHEET_IDS = {
-    'foaie1': '1w0Q6K4jO4Fko0-i7LTwQdxcOnbJ7U-ZvQkK_TeF_sxg',
-    'foaie2': '1w0Q6K4jO4Fko0-i7LTwQdxcOnbJ7U-ZvQkK_TeF_sxg',
-    'foaie3': '1w0Q6K4jO4Fko0-i7LTwQdxcOnbJ7U-ZvQkK_TeF_sxg'
+    'foaie1': 'AKfycbwOoPE_1yEvqL0TJEtgETjyBx1rD3Ij3cycTDn-czOADfE-BvCc9RLEsmjPshgYbNOx',
+    'foaie2': 'AKfycbzego6iqvCMTdKDw6l-yRtZzIAFPfYXv_r-wFTS01VHDt8gBssJfcpPYsZrRKBQXYSr',
+    'foaie3': 'AKfycbwm2QivdHIigQmokBtd4-H6OzXlEz9FWstyTy-JsLSinBlXscaSgtBEUfkah8WUxb4i'
 };
 
 // URL-ul implicit (prima foaie)
@@ -1331,6 +1331,12 @@ function initControls() {
     }
     
     console.log('Controale inițializate');
+    
+    // Adăugăm butonul de test pentru Web App API
+    const apiTestButton = document.getElementById('test-api-button');
+    if (apiTestButton) {
+        apiTestButton.addEventListener('click', testWebAppConnection);
+    }
 }
 
 // Funcție utilă pentru formatarea datei pentru input-uri HTML
@@ -1884,6 +1890,54 @@ function fetchDataFromWebApp(callback) {
     
     // Adăugăm scriptul la document pentru a iniția cererea
     document.body.appendChild(script);
+}
+
+// Funcție pentru testarea conexiunii la Web App API
+async function testWebAppConnection() {
+    try {
+        console.log("Testăm conexiunea la Web App API...");
+        console.log("URL Web App: " + webAppUrl);
+        
+        // Adăugăm un timestamp pentru a evita cache-ul
+        const url = `${webAppUrl}?test=true&timestamp=${Date.now()}`;
+        
+        // Afișăm mesaj în interfață
+        const statusElement = document.getElementById('connection-status');
+        if (statusElement) {
+            statusElement.textContent = "Se testează conexiunea...";
+            statusElement.className = "status testing";
+        }
+        
+        // Facem cererea
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        console.log("Răspuns de la Web App API:", data);
+        
+        // Actualizăm statusul în interfață
+        if (statusElement) {
+            if (data && data.success) {
+                statusElement.textContent = "Conexiune reușită! API funcțional.";
+                statusElement.className = "status success";
+            } else {
+                statusElement.textContent = "Conexiune reușită, dar API-ul raportează o eroare: " + (data.error || "Necunoscută");
+                statusElement.className = "status warning";
+            }
+        }
+        
+        return data;
+    } catch (error) {
+        console.error("Eroare la testarea conexiunii:", error);
+        
+        // Actualizăm statusul în interfață
+        const statusElement = document.getElementById('connection-status');
+        if (statusElement) {
+            statusElement.textContent = "Eroare de conexiune: " + error.message;
+            statusElement.className = "status error";
+        }
+        
+        return { success: false, error: error.toString() };
+    }
 }
 
 // Actualizăm pagina periodic
